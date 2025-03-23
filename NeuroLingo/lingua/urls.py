@@ -11,7 +11,6 @@ router.register(r'phrases', PhraseViewSet)
 router.register(r'lessons', LessonViewSet)
 router.register(r'student-progress', StudentProgressViewSet)
 
-
 urlpatterns = [
     path('api/', include(router.urls)),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

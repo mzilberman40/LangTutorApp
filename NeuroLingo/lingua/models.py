@@ -10,6 +10,10 @@ class Student(AbstractUser):
     groups = models.ManyToManyField(Group, related_name="student_groups")
     user_permissions = models.ManyToManyField(Permission, related_name="student_permissions")
 
+    class Meta:
+        verbose_name = "Student"
+        verbose_name_plural = "Students"
+
 
 # Entities (words/phrases)
 class Entity(models.Model):

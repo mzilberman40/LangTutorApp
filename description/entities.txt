@@ -1,0 +1,17 @@
+At the initial stage, a set of entities is generated for the student to study and memorize.
+
+All these entities are stored in the database for progress tracking.
+
+There are several ways to create a list of entities:
+
+1. The student can manually add entities.
+2. The student can request the application to generate a list based on certain criteria.
+3. The app can automatically generate a list based on the chosen learning program.
+4. A combination of the above methods.
+
+**Input:** List of entities, or target language and dialect, proficiency level (A1, A2, etc.),
+            learning program, topic, etc., for entity generation.
+
+**Output:** A list of entities.
+
+If a student wants to learn a specific phrase, it must be included in their personal entity list.

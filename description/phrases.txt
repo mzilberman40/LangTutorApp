@@ -1,0 +1,15 @@
+Based on the selected entities, the app generates a list of phrases for learning.
+
+If an entity is not a complete phrase,
+the app generates example phrases that commonly include that entity in the given language or dialect.
+The number of phrases per entity is determined by the `PHRASES_PER_ENTITY` parameter.
+
+**Input:** Native language, target language and dialect, proficiency level (A1, A2, etc.),
+learning program, topic, list of entities.
+
+**Output:** A file containing phrases, with each row formatted as:
+   `phrase_in_native_language | phrase_in_target_language`
+
+If the student wants to learn a specific phrase, it must be included in their entity list.
+
+---

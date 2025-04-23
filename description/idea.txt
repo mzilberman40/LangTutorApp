@@ -1,0 +1,6 @@
+The main idea is to create a structured process for memorizing words and phrases.
+The core unit of memorization is the **entity**.
+
+1. Generating a list of entities (details in entities.txt).
+2. Generating a list of phrases (details in phrases.txt).
+3. Generating audio files for lessons (details in lessons.txt).

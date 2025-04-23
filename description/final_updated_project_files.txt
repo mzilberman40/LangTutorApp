@@ -1,0 +1,67 @@
+**idea.txt**
+The main idea is to create a structured process for memorizing words and phrases. The core unit of memorization is the **entity**.
+
+1. Generating a list of entities (details in entities.txt).
+2. Generating a list of phrases (details in phrases.txt).
+3. Generating audio files for lessons (details in lessons.txt).
+
+---
+
+**entities.txt**
+At the initial stage, a set of entities is generated for the student to study and memorize.
+
+All these entities are stored in the database for progress tracking.
+
+There are several ways to create a list of entities:
+
+1. The student can manually add entities.
+2. The student can request the application to generate a list based on certain criteria.
+3. The app can automatically generate a list based on the chosen learning program.
+4. A combination of the above methods.
+
+**Input:** List of entities, or target language and dialect, proficiency level (A1, A2, etc.), learning program, topic, etc., for entity generation.
+
+**Output:** A list of entities.
+
+If a student wants to learn a specific phrase, it must be included in their personal entity list.
+
+---
+
+**phrases.txt**
+Based on the selected entities, the app generates a list of phrases for learning.
+
+If an entity is not a complete phrase, the app generates example phrases that commonly include that entity in the given language or dialect. 
+The number of phrases per entity is determined by the `PHRASES_PER_ENTITY` parameter.
+
+**Input:** Native language, target language and dialect, proficiency level (A1, A2, etc.), learning program, topic, list of entities.
+
+**Output:** A file containing phrases, with each row formatted as:
+   `phrase_in_native_language | phrase_in_target_language`
+
+If the student wants to learn a specific phrase, it must be included in their entity list.
+
+---
+
+**lessons.txt**
+
+**Input:** Native language, target language and dialect, list of phrases.
+**Output:** Lesson files.
+
+Lesson structure:
+1. The length of each lesson is controlled by the `LESSON_LENGTH` parameter.
+2. Each lesson consists of three files:
+   - `lesson_NN.txt`: A text file containing the list of learning entities and phrases.
+   - `lesson_NN_study.mp3`: An audio file for structured learning, where each phrase follows this sequence:
+     1. The phrase is played in the native language.
+     2. **`RECALL_PAUSE`**: A pause allowing the student to recall the phrase in the target language.
+     3. The phrase is played in the target language for shadowing at the speed defined by `TARGET_AUDIO_SPEED`.
+     4. **`REPETITION_PAUSE`**: The student repeats the phrase `REPETITION_COUNT` times.
+     5. Steps 3 and 4 can be repeated `FULL_CYCLE_COUNT` times.
+   - `lesson_NN_training.mp3`: A file for practicing the phrases of the lesson, where phrases appear in `TRAINING_ORDER`, requiring the student to recall and say them several times.
+
+Audio files will be generated using a Python script, as previous AI-generated audio did not meet quality expectations.
+The playback speed for native language phrases is controlled by `NATIVE_AUDIO_SPEED`, and for target language phrases by `TARGET_AUDIO_SPEED`.
+
+---
+
+These updates ensure that all values are configurable and controlled via the `parameters.txt` file for better flexibility.

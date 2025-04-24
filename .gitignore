@@ -3,7 +3,7 @@
 ##############################################################################
 # PyCharm / IntelliJ
 .idea/
-# VS Code
+# VS Code
 .vscode/
 # General editor swap / backup
 *~
@@ -13,7 +13,7 @@
 ##############################################################################
 # PYTHON ARTIFACTS
 ##############################################################################
-# Byte‑code & interpreter caches
+# Byte-code & interpreter caches
 __pycache__/
 *.py[cod]
 *$py.class
@@ -33,19 +33,26 @@ wheelhouse/
 venv/
 env/
 ENV/
+
 # Pipenv
 Pipfile.lock
+
 # Poetry
 poetry.lock
+
 # Conda
 *.conda
 *.env
 
+# SQLite (common for Django and CLI)
+*.sqlite3
+
 ##############################################################################
-# TEST, LINT & TYPE‑CHECKER OUTPUT
+# TEST, LINT & TYPE-CHECKER OUTPUT
 ##############################################################################
 .pytest_cache/
 .coverage*
+.coverage
 htmlcov/
 nosetests.xml
 *.cover
@@ -64,9 +71,11 @@ nosetests.xml
 *.log
 *.tmp
 *.bak
+*.json.log
 local_settings.py
 .env
 .env.*
+.local.*
 
 ##############################################################################
 # OS / MISC
@@ -76,10 +85,10 @@ Thumbs.db
 ehthumbs.db
 desktop.ini
 
+##############################################################################
+# PROJECT-SPECIFIC (Langs2Brain Step01)
+##############################################################################
 step01/.env
 step01/.secrets/
 step01/.cache/
-
-
-
-
+.cache/

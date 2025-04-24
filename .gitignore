@@ -76,5 +76,10 @@ Thumbs.db
 ehthumbs.db
 desktop.ini
 
+step01/.env
+step01/.secrets/
+step01/.cache/
+
+
 
 

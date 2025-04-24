@@ -1,0 +1,75 @@
+# Technical Specification: Step01 – User Input Processing and Phrase Preparation
+
+This document replaces the original `task1.txt` and will serve as the base for function documentation.
+
+## Purpose
+Implement Step 01 of the language-learning system, covering user input processing, filtering by language, and preparation for phrase generation.
+
+---
+
+## Input
+
+User provides the following JSON input:
+```json
+{
+  "words": ["example", "list", "of", "words"],
+  "native_lang": "Russian",              // Default
+  "learning_lang": "British English",     // Default
+  "level": "B1",                           // Default
+  "N": 5                                    // Default (must be > 0)
+}
+```
+
+---
+
+## Step-by-Step Logic
+
+### ✅ Step 1: Input Validation and Cleaning
+- `words` must be a list of strings.
+- Clean each word:
+  - Strip punctuation.
+  - Convert to lowercase.
+  - Remove whitespace.
+  - Remove duplicates.
+- Validate:
+  - `native_lang` and `learning_lang` ∈ {"Russian", "British English", "American English", "Hebrew"}
+  - `level` ∈ {"A1", "A2", "B1", "B2", "C1", "C2"}
+  - `N` ∈ Natural numbers > 0
+
+### ✅ Step 2: Language Filtering (AI-Based)
+- Detect language of each word using `langdetect` or equivalent.
+- Map `learning_lang` to language codes:
+  - "British English" / "American English" → `"en"`
+  - "Russian" → `"ru"`
+  - "Hebrew" → `"he"`
+- For Hebrew, also check Unicode block `֐–׿`
+- Return two lists:
+  - `accepted`: words matching the learning language
+  - `rejected`: all others
+
+### 🔜 Step 3: Phrase Generation (Placeholder)
+- For each accepted word:
+  - Generate `N` frequently used phrases matching the CEFR level
+  - (To be implemented in next step)
+
+### 🔜 Step 4: JSON Output
+- Create one JSON object per phrase:
+  ```json
+  {
+    "word": "chat",
+    "native_lang": "Russian",
+    "learning_lang": "British English",
+    "level": "B1",
+    "phrase": "Let's have a chat."
+  }
+  ```
+- Output: List of all such objects
+
+---
+
+## Localization
+- Code logic uses internal localization: `en`
+
+## Notes
+- This file replaces `task1.txt`
+- It is the official source of truth for Step01 implementation and documentation

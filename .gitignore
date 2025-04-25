@@ -88,7 +88,7 @@ desktop.ini
 ##############################################################################
 # PROJECT-SPECIFIC (Langs2Brain Step01)
 ##############################################################################
-step01/.env
-step01/.secrets/
-step01/.cache/
+stage01/.env
+stage01/.secrets/
+stage01/.cache/
 .cache/

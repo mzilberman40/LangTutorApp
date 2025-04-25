@@ -1,0 +1,18 @@
+# Technical Specification: Stage02 – User Input Processing and Phrase Preparation
+
+## Purpose
+Implement Stage 02 of the language-learning system, covering pronunciation of phrases generated on stage 01.
+
+Input:
+list of JSON objects:
+  {
+    "word": "perseverance",
+    "native_lang": "Russian",
+    "learning_lang": "British English",
+    "level": "C2",
+    "phrase_on_learning_lang": "She showed great perseverance in pursuing her dreams",
+    "phrase_on_native_lang": "Она проявила огромное упорство в достижении своих целей"
+  }
+
+  As output we should to generate an audio file with
+

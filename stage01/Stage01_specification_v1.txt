@@ -1,0 +1,83 @@
+# Technical Specification: Stage01 – User Input Processing and Phrase Preparation
+
+This file replaces the previous version of `Stage01_specification.txt` and the original `task1.txt`. It will serve as the base for function documentation.
+
+---
+
+## Purpose
+Implement Stage01 of the language-learning system, covering user input processing, filtering by language, and preparation for phrase generation.
+
+---
+
+## Input
+
+User provides the following JSON input:
+```json
+{
+  "words": ["example", "list", "of", "words"],
+  "native_lang": "Russian",              // Default
+  "learning_lang": "British English",     // Default
+  "level": "B1"                           // Default
+}
+```
+
+`N` (phrases_per_word) and `min_words_in_phrase` are defined in the main configuration file, not passed as arguments to the function.
+
+---
+
+## Step-by-Step Logic
+
+### ✅ Step 1: Input Validation and Cleaning
+- `words` must be a list of strings.
+- Clean each word:
+  - Strip punctuation.
+  - Convert to lowercase.
+  - Remove whitespace.
+  - Remove duplicates.
+- Validate:
+  - `native_lang` and `learning_lang` ∈ {"Russian", "British English", "American English", "Hebrew"}
+  - `level` ∈ {"A1", "A2", "B1", "B2", "C1", "C2"}
+
+### ✅ Step 2: Language Filtering (AI-Based)
+- Detect the language of each word using `langdetect` or equivalent.
+- Language and dialect naming system:
+  - `ru`, `russian`
+  - `he`, `hebrew`
+  - `en`, `en-gb`, `british`, `british english`
+  - `en-us`, `us`, `american`, `american english`
+- Map `learning_lang` to language codes accordingly.
+- For Hebrew, also check Unicode block `א–׿`.
+- Return two lists:
+  - `accepted`: words matching the learning language.
+  - `rejected`: all others.
+
+### 📈 Step 3: Phrase Generation (Placeholder)
+- For each accepted word:
+  - Generate `phrases_per_word` frequently used phrases matching the CEFR level.
+  - Each phrase must have at least `min_words_in_phrase` words.
+  - No numbering should appear inside the phrases.
+
+### 📈 Step 4: JSON Output
+- Create one JSON object per generated phrase with the structure:
+```json
+{
+  "word": "to muzzle",
+  "level": "C2",
+  "learning_lang": "British English",
+  "native_lang": "Russian",
+  "phrase_on_learning_lang": "It's a pity that they muzzle talented people in such a way.",
+  "phrase_on_native_lang": "Жаль, что таким образом затыкают рот талантливым людям"
+}
+```
+- Output: List of all such JSON objects.
+
+---
+
+## Localization
+- Code logic uses internal localization: `en`.
+
+## Notes
+- This file replaces the previous version of `Stage01_specification.txt`.
+- It is the official source of truth for Stage01 implementation and documentation.
+
+_Last updated: 2025-04-25_

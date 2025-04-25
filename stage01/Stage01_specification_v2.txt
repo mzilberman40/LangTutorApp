@@ -1,0 +1,91 @@
+# Technical Specification: Stage01 – User Input Processing and Phrase Preparation
+
+This file replaces the previous version of `Stage01_specification.txt` and the original `task1.txt`. It will serve as the base for function documentation.
+
+---
+
+## Purpose
+Implement Stage01 of the language-learning system, covering user input processing, filtering by language, and preparation for phrase generation.
+
+---
+
+## Input
+
+User provides the following JSON input:
+{
+  "words": ["example", "list", "of", "words"],
+  "native_lang": "Russian",
+  "learning_lang": "British English",
+  "level": "B1"
+}
+
+`phrases_per_word`, `min_words_in_phrase`, and `max_words_in_phrase` are defined in the main configuration file, not passed as arguments to the function.
+
+---
+
+## Step-by-Step Logic
+
+### ✅ Step 1: Input Validation and Cleaning
+- `words` must be a list of strings.
+- Clean each word:
+  - Strip punctuation.
+  - Convert to lowercase.
+  - Remove whitespace.
+  - Remove duplicates.
+- Validate:
+  - `native_lang` and `learning_lang` ∈ {"Russian", "British English", "American English", "Hebrew"}
+  - `level` ∈ {"A1", "A2", "B1", "B2", "C1", "C2"}
+
+### ✅ Step 2: Language Filtering (AI-Based)
+- Detect the language of each word using `langdetect` or equivalent.
+- Language and dialect naming system:
+  - `ru`, `russian`
+  - `he`, `hebrew`
+  - `en`, `en-gb`, `british`, `british english`
+  - `en-us`, `us`, `american`, `american english`
+- Map `learning_lang` to language codes accordingly.
+- For Hebrew, also check Unicode block `א–׿`.
+- Return two lists:
+  - `accepted`: words matching the learning language.
+  - `rejected`: all others.
+
+### 📈 Step 3: Phrase Generation
+- For each accepted word:
+  - Generate `phrases_per_word` frequently used phrases matching the CEFR level.
+  - Each phrase must strictly contain between `min_words_in_phrase` and `max_words_in_phrase` words.
+  - Each phrase must include the source word.
+  - No numbering should appear inside the phrases.
+  - If a phrase does not meet these criteria, it must be discarded and a warning must be logged using `logger.warning(...)`.
+
+### 📈 Step 4: JSON Output
+- Create one JSON object per generated phrase with the structure:
+{
+  "word": "to muzzle",
+  "level": "C2",
+  "learning_lang": "British English",
+  "native_lang": "Russian",
+  "phrase_on_learning_lang": "It's a pity that they muzzle talented people in such a way.",
+  "phrase_on_native_lang": "Жаль, что таким образом затыкают рот талантливым людям"
+}
+- Output: List of all such JSON objects.
+
+---
+
+## Localization
+- Code logic uses internal localization: `en`.
+
+## Function Documentation
+
+### `generate_phrases(word: str, level: str, learning_lang: str, native_lang: str) -> List[Dict[str, str]]`
+Generates a list of bilingual phrases containing the given word.
+
+### `is_valid_phrase(phrase: str, word: str) -> bool`
+Checks if a phrase satisfies the minimum and maximum word count and includes the given word.
+
+---
+
+## Notes
+- This file replaces the previous version of `Stage01_specification.txt`.
+- It is the official source of truth for Stage01 implementation and documentation.
+
+_Last updated: 2025-04-25_

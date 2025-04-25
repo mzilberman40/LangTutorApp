@@ -1,5 +1,6 @@
 import unittest
-from step01.clean_and_validate_input import clean_and_validate_input
+from stage01.clean_and_validate_input import clean_and_validate_input
+
 
 class TestStep01Input(unittest.TestCase):
 
@@ -27,33 +28,40 @@ class TestStep01Input(unittest.TestCase):
 
     def test_invalid_language(self):
         with self.assertRaises(ValueError):
-            clean_and_validate_input({
-                "words": ["chat"],
-                "native_lang": "Martian",
-                "learning_lang": "British English",
-                "level": "B1",
-                "N": 5
-            })
+            clean_and_validate_input(
+                {
+                    "words": ["chat"],
+                    "native_lang": "Martian",
+                    "learning_lang": "British English",
+                    "level": "B1",
+                    "N": 5,
+                }
+            )
 
     def test_invalid_level(self):
         with self.assertRaises(ValueError):
-            clean_and_validate_input({
-                "words": ["chat"],
-                "native_lang": "Russian",
-                "learning_lang": "British English",
-                "level": "B3",
-                "N": 5
-            })
+            clean_and_validate_input(
+                {
+                    "words": ["chat"],
+                    "native_lang": "Russian",
+                    "learning_lang": "British English",
+                    "level": "B3",
+                    "N": 5,
+                }
+            )
 
     def test_invalid_N(self):
         with self.assertRaises(ValueError):
-            clean_and_validate_input({
-                "words": ["chat"],
-                "native_lang": "Russian",
-                "learning_lang": "British English",
-                "level": "B1",
-                "N": 0
-            })
+            clean_and_validate_input(
+                {
+                    "words": ["chat"],
+                    "native_lang": "Russian",
+                    "learning_lang": "British English",
+                    "level": "B1",
+                    "N": 0,
+                }
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

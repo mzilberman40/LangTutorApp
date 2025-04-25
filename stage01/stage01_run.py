@@ -1,12 +1,11 @@
-import os
 import json
 from dotenv import load_dotenv
-from yandex_lib import load_service_key, get_iam_token
 from is_word_in_language import is_word_in_language
 from phrase_generator import generate_phrases
-from step01.clean_and_validate_input import clean_and_validate_input
+from stage01.clean_and_validate_input import clean_and_validate_input
 
 load_dotenv()
+
 
 def step01_pipeline(user_input: dict):
     validated = clean_and_validate_input(user_input)
@@ -14,7 +13,6 @@ def step01_pipeline(user_input: dict):
     native_lang = validated["native_lang"]
     learning_lang = validated["learning_lang"]
     level = validated["level"]
-    N = validated["N"]
 
     result = []
     print(f"✅ Validated & cleaned words: {words}")
@@ -22,7 +20,7 @@ def step01_pipeline(user_input: dict):
     for word in words:
         if is_word_in_language(word, learning_lang):
             print(f"✅ '{word}' accepted in {learning_lang}")
-            phrases = generate_phrases(word, level, learning_lang, native_lang, count=N)
+            phrases = generate_phrases(word, level, learning_lang, native_lang)
             result.extend(phrases)
         else:
             print(f"⛔ '{word}' rejected (not in {learning_lang})")
@@ -34,7 +32,6 @@ if __name__ == "__main__":
     native_lang = input("Enter native language (e.g., Russian): ")
     learning_lang = input("Enter learning language (e.g., British English): ")
     level = input("Enter CEFR level (e.g., B1): ")
-    N = int(input("How many phrases per word?: "))
 
     words = [w.strip() for w in words_input.split(",")]
     user_input = {
@@ -42,7 +39,6 @@ if __name__ == "__main__":
         "native_lang": native_lang,
         "learning_lang": learning_lang,
         "level": level,
-        "N": N
     }
 
     data = step01_pipeline(user_input)

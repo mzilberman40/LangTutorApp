@@ -1,4 +1,4 @@
-# Technical Specification: Step01 – User Input Processing and Phrase Preparation
+# Technical Specification: Stage01 – User Input Processing and Phrase Preparation
 
 This document replaces the original `task1.txt` and will serve as the base for function documentation.
 
@@ -71,5 +71,5 @@ User provides the following JSON input:
 - Code logic uses internal localization: `en`
 
 ## Notes
-- This file replaces `task1.txt`
+- This file replaces `step01.txt`
 - It is the official source of truth for Step01 implementation and documentation

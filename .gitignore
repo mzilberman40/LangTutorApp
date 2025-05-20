@@ -55,3 +55,4 @@ dmypy.json
 .gpt/
 /Draft/
 /prompts/word2phrase.txt
+/tmp/

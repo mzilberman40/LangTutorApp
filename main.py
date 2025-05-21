@@ -2,7 +2,8 @@ import os
 from openai import OpenAI
 
 from ai.answer_with_llm import answer_with_llm
-from ai.nebius_list_models import nebius_list_models
+
+# from ai.nebius_list_models import nebius_list_models
 from config.config import Config, load_config
 
 config: Config = load_config()

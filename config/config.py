@@ -7,6 +7,7 @@ from environs import Env
 class OpenAI:
     nebius_key: str
 
+
 @dataclass(frozen=True)
 class Config:
     openai: OpenAI
@@ -31,4 +32,3 @@ if __name__ == "__main__":
     # Выводим значения полей экземпляра класса Config на печать,
     # чтобы убедиться, что все данные, получаемые из переменных окружения, доступны
     print("NEBIUS_API_KEY:", config.openai.nebius_key)
-

@@ -1,0 +1,70 @@
+openapi: 3.1.0
+info:
+  title: Langs2Brain WordTranslation Bulk API
+  version: "1.2"
+  description: |
+    Push a word and its translations (with pronunciation, POS and confidence) into the user's personal vocabulary database.
+
+servers:
+  - url: https://f844-212-175-197-252.ngrok-free.app  # 👈 Укажи свой актуальный публичный адрес
+
+paths:
+  /api/word-translations/bulk_create/:
+    post:
+      operationId: sendWordTranslation
+      summary: Create a new source word and add multiple translations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkWordTranslation"
+      responses:
+        "201":
+          description: Translations successfully created
+        "400":
+          description: Validation error (e.g., same language, missing fields)
+
+components:
+  schemas:
+    WordInput:
+      type: object
+      required:
+        - word
+        - language
+        - pronunciation
+      properties:
+        word:
+          type: string
+          example: "run"
+        language:
+          type: string
+          example: "en-GB"
+        part_of_speech:
+          type: string
+          enum: [noun, verb, adj, adv, prep, conj, pron, interj, phrase]
+          example: "verb"
+        pronunciation:
+          type: string
+          example: "/rʌn/"
+
+    BulkWordTranslation:
+      type: object
+      required:
+        - source_word
+        - targets
+      properties:
+        source_word:
+          $ref: "#/components/schemas/WordInput"
+        targets:
+          type: array
+          items:
+            $ref: "#/components/schemas/WordInput"
+        translation_type:
+          type: string
+          enum: [manual, ai, user, imported]
+          default: manual
+        confidence:
+          type: number
+          format: float
+          example: 0.85

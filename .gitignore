@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+*.env
+
+# PyCharm
+.idea/
+
+# VSCode
+.vscode/
+
+# Byte-compiled / cache files
+*.pyc
+*.pyo
+*.pyd
+
+# Logs and local databases
+*.log
+*.sqlite3
+*.db
+
+# Test and coverage
+htmlcov/
+.tox/
+.nox/
+coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Jupyter
+.ipynb_checkpoints
+
+# GPT interaction folder
+.gpt/
+/Draft/
+/prompts/unit2phrase.txt
+/tmp/
+/learning/migrations/
+/SilverTranslatorGPTs/SilverTranslator_Instruction_English_v2.md
+/prompts/
+/SilverTranslatorGPTs/
+/ls-R.txt

@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from learning.enums import CEFR
 from learning.models import (
     LexicalUnit,
     LexicalUnitTranslation,
@@ -8,6 +9,7 @@ from learning.models import (
     PhraseTranslation,
     LexicalUnitType,
 )
+from learning.validators import bcp47_validator
 
 
 class LexicalUnitSerializer(serializers.ModelSerializer):
@@ -143,3 +145,24 @@ class PhraseTranslationSerializer(serializers.ModelSerializer):
         if data["source_phrase"] == data["target_phrase"]:
             raise serializers.ValidationError("A phrase cannot translate to itself.")
         return data
+
+
+class PhraseGenerationRequestSerializer(serializers.Serializer):
+    target_translation_language = serializers.CharField(
+        max_length=16,  # Or a suitable length for BCP47 codes
+        validators=[bcp47_validator],  # <--- APPLY THE VALIDATOR HERE
+    )
+    cefr_level = serializers.ChoiceField(choices=CEFR.choices)
+
+
+class EnrichLexicalUnitRequestSerializer(serializers.Serializer):
+    target_translation_languages = serializers.ListField(
+        child=serializers.CharField(max_length=32, validators=[bcp47_validator]),
+        required=False,  # Making translation optional
+        help_text="Optional list of BCP47 language codes to translate the lexical unit into.",
+    )
+    force_update_details = serializers.BooleanField(
+        default=False,
+        required=False,
+        help_text="If true, attempt to fetch and update details (POS, pronunciation) even if they already exist.",
+    )

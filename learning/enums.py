@@ -12,6 +12,10 @@ class PartOfSpeech(models.TextChoices):
     INTERJ = "interj", "Interjection"
     NUM = "num", "Numeral"
     PART = "part", "Particle"
+    COLLOCATION = "collocation", "Collocation"  # <-- New addition
+    PHRASAL_VERB = "phrasal_verb", "Phrasal Verb"
+    IDIOM = "idiom", "Idiom"
+    OTHER_MWU = "multi_word_unit", "Multi-Word Unit"  # A very generic fallback
 
 
 class CEFR(models.TextChoices):

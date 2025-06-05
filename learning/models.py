@@ -22,8 +22,8 @@ class LexicalUnit(models.Model):
         help_text="‘single’ = one token; ‘colloc’ = multi-word item",
     )
     language = models.CharField(
-        max_length=128,
-        default="en-GB",
+        max_length=16,
+        # default="en-GB",
         validators=[bcp47_validator],
         help_text="BCP47 language code (e.g. en, en-GB, he-IL)",
     )
@@ -53,13 +53,29 @@ class LexicalUnit(models.Model):
     )
 
     class Meta:
-        unique_together = ("lemma", "language")
+        unique_together = ("lemma", "language", "part_of_speech")
         indexes = [
             models.Index(fields=["lemma"]),
             models.Index(fields=["language"]),
+            models.Index(fields=["part_of_speech"]),
         ]
 
+    def save(self, *args, **kwargs):
+        if self.lemma:
+            # 1. Canonicalize lemma: spaces and lowercase
+            self.lemma = " ".join(self.lemma.split()).lower()
+
+        # 2. Set unit_type based on the canonicalized lemma
+        if self.lemma and " " in self.lemma:  # Check self.lemma after it's processed
+            self.unit_type = LexicalUnitType.COLLOC
+        else:  # Handles single words and also empty/None lemmas if they reach here
+            self.unit_type = LexicalUnitType.SINGLE
+
+        super().save(*args, **kwargs)
+
     def __str__(self):
+        if self.part_of_speech:
+            return f"{self.lemma} ({self.part_of_speech}) [{self.language}]"
         return f"{self.lemma} [{self.language}]"
 
 
@@ -93,13 +109,13 @@ class LexicalUnitTranslation(models.Model):
         # ]
 
     def __str__(self):
-        return f"{self.source_unit.lemma} → {self.target_unit.lemma}"
+        return f"{str(self.source_unit)} → {str(self.target_unit)}"  # <--- MODIFIED
 
 
 class Phrase(models.Model):
     text = models.TextField()
     language = models.CharField(
-        max_length=32,
+        max_length=16,
         validators=[bcp47_validator],
         help_text="BCP47 language code (e.g. en, ru, he-IL)",
     )

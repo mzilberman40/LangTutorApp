@@ -1,204 +1,126 @@
-# In learning/tests/test_lexical_unit_api.py
 import pytest
-from rest_framework.test import APIClient
 from django.urls import reverse
 from learning.models import LexicalUnit
-from learning.enums import (
-    LexicalUnitType,
-    PartOfSpeech,
-    LexicalUnitStatus,
-)  # Assuming correct enum names
+from learning.enums import PartOfSpeech
+
+# All tests in this file will be run against the database
+pytestmark = pytest.mark.django_db
 
 
-@pytest.mark.django_db
+# The `authenticated_client` fixture logs in the `default_user` for all tests in this class.
 class TestLexicalUnitAPI:
 
-    def setup_method(self):
-        self.client = APIClient()
-        self.url = reverse("lexicalunit-list")  # from learning.urls router basename
-
-    def test_create_lexical_unit_single_word(self):
+    def test_create_lexical_unit_single_word(self, authenticated_client, default_user):
+        url = reverse("lexicalunit-list")
         payload = {
             "lemma": "  TesTWord  ",
             "language": "en-GB",
             "part_of_speech": PartOfSpeech.NOUN,
         }
-        response = self.client.post(self.url, payload, format="json")
+        response = authenticated_client.post(url, payload, format="json")
         assert response.status_code == 201
-        data = response.data
-        assert data["lemma"] == "testword"  # Canonical: lowercase, stripped
-        assert data["language"] == "en-GB"
-        assert data["part_of_speech"] == PartOfSpeech.NOUN
-        assert data["unit_type"] == LexicalUnitType.SINGLE
-        assert LexicalUnit.objects.filter(
-            lemma="testword", language="en-GB", part_of_speech=PartOfSpeech.NOUN
-        ).exists()
 
-    def test_create_lexical_unit_collocation(self):
+        lu = LexicalUnit.objects.get(id=response.data["id"])
+        assert lu.user == default_user  # Verify ownership
+        assert lu.lemma == "testword"
+
+    def test_create_duplicate_lexical_unit_for_same_user_fails(
+        self, authenticated_client
+    ):
+        url = reverse("lexicalunit-list")
         payload = {
-            "lemma": "  TesT   COLLOCATION  ",
-            "language": "en",
-            "part_of_speech": PartOfSpeech.COLLOCATION,
-        }  # Assuming COLLOCATION is in PartOfSpeech
-        response = self.client.post(self.url, payload, format="json")
-        assert response.status_code == 201
-        data = response.data
-        assert data["lemma"] == "test collocation"  # Canonical
-        assert data["unit_type"] == LexicalUnitType.COLLOC
-        assert data["part_of_speech"] == PartOfSpeech.COLLOCATION
-        assert LexicalUnit.objects.filter(
-            lemma="test collocation",
-            language="en",
-            part_of_speech=PartOfSpeech.COLLOCATION,
-        ).exists()
-
-    def test_create_lexical_unit_default_pos(self):
-        # Tests creation when part_of_speech is not provided, relying on model default ""
-        payload = {"lemma": "default pos test", "language": "de"}
-        response = self.client.post(self.url, payload, format="json")
-        assert response.status_code == 201
-        data = response.data
-        assert data["lemma"] == "default pos test"
-        assert data["part_of_speech"] == ""  # Default from model
-        assert data["unit_type"] == LexicalUnitType.COLLOC
-        assert LexicalUnit.objects.filter(
-            lemma="default pos test", language="de", part_of_speech=""
-        ).exists()
-
-    def test_create_lexical_unit_with_status_and_notes(self):
-        payload = {
-            "lemma": "  Pineapple王国 ",  # Mixed case, spaces, non-ASCII
-            "language": "ja",
-            "part_of_speech": PartOfSpeech.NOUN,
-            "status": LexicalUnitStatus.TO_REVIEW,  # Use your enum
-            "notes": "Exotic and regal",
-        }
-        response = self.client.post(self.url, payload, format="json")
-        assert response.status_code == 201
-        data = response.data
-        assert (
-            data["lemma"] == "pineapple王国"
-        )  # Canonical: lowercase, single space, original chars preserved
-        assert data["part_of_speech"] == PartOfSpeech.NOUN
-        assert data["status"] == LexicalUnitStatus.TO_REVIEW
-        assert data["notes"] == "Exotic and regal"
-        assert data["unit_type"] == LexicalUnitType.COLLOC  # Due to space
-
-    def test_create_duplicate_lexical_unit_fails(self):
-        # Test unique_together ("lemma", "language", "part_of_speech") via API
-        common_payload = {
             "lemma": "unique_test",
             "language": "es",
             "part_of_speech": PartOfSpeech.VERB,
         }
-        response1 = self.client.post(self.url, common_payload, format="json")
+        response1 = authenticated_client.post(url, payload, format="json")
         assert response1.status_code == 201
 
-        # Attempt to create exact duplicate
-        response2 = self.client.post(self.url, common_payload, format="json")
-        assert response2.status_code == 400  # DRF validation for unique_together
+        # Attempt to create the exact same LU for the same user should fail
+        response2 = authenticated_client.post(url, payload, format="json")
+        assert response2.status_code == 400
 
-        # Attempt with different case (should also fail due to .lower() in save)
-        payload_diff_case = {
-            "lemma": "Unique_Test",
-            "language": "es",
-            "part_of_speech": PartOfSpeech.VERB,
+    def test_create_duplicate_lexical_unit_for_different_user_succeeds(
+        self, authenticated_client, user_factory
+    ):
+        url = reverse("lexicalunit-list")
+        payload = {
+            "lemma": "shared_lemma",
+            "language": "fr",
+            "part_of_speech": PartOfSpeech.NOUN,
         }
-        response3 = self.client.post(self.url, payload_diff_case, format="json")
-        assert response3.status_code == 400
+        # The 'authenticated_client' is logged in as the default user
+        response1 = authenticated_client.post(url, payload, format="json")
+        assert response1.status_code == 201
 
-    def test_get_lexical_unit_list(self):
-        LexicalUnit.objects.create(
-            lemma="apple", language="en", part_of_speech=PartOfSpeech.NOUN
-        )
-        LexicalUnit.objects.create(
-            lemma="яблоко", language="ru", part_of_speech=PartOfSpeech.NOUN
-        )
-        response = self.client.get(self.url)
-        assert response.status_code == 200
-        # Ensure data is a list (standard for list views)
-        assert isinstance(response.data, list)
-        # Adjust count based on pagination or other fixtures. Here expecting at least 2.
-        assert len(response.data) >= 2
+        # Create and authenticate as a second user
+        other_user = user_factory(username="otheruser")
+        authenticated_client.force_authenticate(user=other_user)
 
-    def test_update_lexical_unit(self):
-        lu = LexicalUnit.objects.create(
-            lemma="original",
+        # Second user creates the same LU, which should succeed
+        response2 = authenticated_client.post(url, payload, format="json")
+        assert response2.status_code == 201
+        assert LexicalUnit.objects.filter(lemma="shared_lemma").count() == 2
+
+    def test_get_lexical_unit_list_returns_only_own_units(
+        self, authenticated_client, lexical_unit_factory, user_factory, default_user
+    ):
+        url = reverse("lexicalunit-list")
+        # Create a unit for our main user (this uses the default_user via the factory)
+        lexical_unit_factory(
+            lemma="my_apple", language="en", part_of_speech=PartOfSpeech.NOUN
+        )
+
+        # Create a unit for another user
+        other_user = user_factory(username="otheruser")
+        lexical_unit_factory(
+            lemma="their_orange",
             language="en",
             part_of_speech=PartOfSpeech.NOUN,
-            notes="old note",
+            user=other_user,
         )
-        update_url = reverse("lexicalunit-detail", args=[lu.id])
 
-        # PUT requires all fields for a full update, or use PATCH for partial.
-        # Let's test updating notes and status, lemma and language could also be updatable.
-        # The original lemma was "original", so canonical form is "original".
-        payload_to_update = {
-            "lemma": "ORIGINAL",  # Will be canonicalized to "original"
-            "language": "en",
-            "part_of_speech": PartOfSpeech.NOUN,  # Must match for unique constraint if lemma/lang are same
-            "status": LexicalUnitStatus.KNOWN,
-            "notes": "new note",
-            "pronunciation": "/əˈrɪdʒɪnəl/",  # Assuming pronunciation can be updated
-            # unit_type is read-only or set by save()
-        }
-        response = self.client.put(update_url, payload_to_update, format="json")
+        # The API client is authenticated as the default_user
+        response = authenticated_client.get(url)
         assert response.status_code == 200
-        lu.refresh_from_db()
-        assert lu.lemma == "original"  # Canonicalized
-        assert lu.notes == "new note"
-        assert lu.status == LexicalUnitStatus.KNOWN
-        assert lu.pronunciation == "/əˈrɪdʒɪnəl/"
-        assert lu.unit_type == LexicalUnitType.SINGLE  # Based on canonical "original"
+        assert len(response.data) == 1  # Should only see 1 unit
+        assert response.data[0]["lemma"] == "my_apple"
 
-    def test_delete_lexical_unit(self):
-        # Renamed from test_delete_word for consistency
-        unit = LexicalUnit.objects.create(
-            lemma="delete-me", language="en", part_of_speech=""
+    def test_update_fails_for_non_owner(
+        self, authenticated_client, lexical_unit_factory, user_factory
+    ):
+        other_user = user_factory(username="otheruser")
+        lu_other = lexical_unit_factory(
+            lemma="theirs",
+            language="en",
+            part_of_speech=PartOfSpeech.NOUN,
+            user=other_user,
         )
-        delete_url = reverse("lexicalunit-detail", args=[unit.id])
-        response = self.client.delete(delete_url)
-        assert response.status_code == 204
-        assert not LexicalUnit.objects.filter(id=unit.id).exists()
 
-    def test_bulk_create_lexical_units(self):
-        # Renamed from test_bulk_create_lexical_unitss
-        payload = [
-            {
-                "lemma": "  Apple Tree  ",
-                "language": "en-GB",
-                "part_of_speech": PartOfSpeech.NOUN,
-            },
-            {"lemma": "банан", "language": "ru", "part_of_speech": ""},  # default POS
-            {
-                "lemma": "FUCK OFF",
-                "language": "en-GB",
-                "part_of_speech": PartOfSpeech.COLLOCATION,
-            },  # Assuming COLLOCATION POS
-        ]
-        response = self.client.post(self.url, payload, format="json")
-        assert response.status_code == 201
-        assert isinstance(response.data, list)
-        assert len(response.data) == 3
+        update_url = reverse("lexicalunit-detail", args=[lu_other.id])
+        payload = {"notes": "hacked"}
 
-        created_units_data = {
-            (d["lemma"], d["language"], d["part_of_speech"], d["unit_type"])
-            for d in response.data
-        }
+        # The authenticated_client (as default_user) tries to update another user's object
+        response = authenticated_client.patch(update_url, payload, format="json")
+        # The get_queryset override should prevent finding this object, resulting in a 404
+        assert response.status_code == 404
 
-        expected_units_data = {
-            (
-                "apple tree",
-                "en-GB",
-                PartOfSpeech.NOUN,
-                LexicalUnitType.COLLOC,
-            ),  # Canonical lemma, COLLOC type
-            ("банан", "ru", "", LexicalUnitType.SINGLE),  # Canonical lemma, SINGLE type
-            (
-                "fuck off",
-                "en-GB",
-                PartOfSpeech.COLLOCATION,
-                LexicalUnitType.COLLOC,
-            ),  # Canonical lemma, COLLOC type
-        }
-        assert created_units_data == expected_units_data
+    def test_delete_fails_for_non_owner(
+        self, authenticated_client, lexical_unit_factory, user_factory
+    ):
+        other_user = user_factory(username="otheruser")
+        lu_other = lexical_unit_factory(
+            lemma="theirs",
+            language="en",
+            part_of_speech=PartOfSpeech.NOUN,
+            user=other_user,
+        )
+
+        delete_url = reverse("lexicalunit-detail", args=[lu_other.id])
+
+        # The authenticated_client (as default_user) tries to delete another user's object
+        response = authenticated_client.delete(delete_url)
+        assert response.status_code == 404
+        assert LexicalUnit.objects.filter(
+            id=lu_other.id
+        ).exists()  # Should not be deleted

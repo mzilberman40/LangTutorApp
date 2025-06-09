@@ -1,4 +1,6 @@
 import pytest
+
+from learning.enums import PartOfSpeech
 from learning.models import Phrase, LexicalUnit
 
 pytestmark = pytest.mark.django_db
@@ -18,9 +20,12 @@ def test_phrase_string_representation():
     assert "[en]" in str(phrase)
 
 
-def test_phrase_with_words():
-    lu1 = LexicalUnit.objects.create(lemma="leg", language="en")
-    phrase = Phrase.objects.create(text="Break a leg", language="en")
+def test_phrase_with_words(lexical_unit_factory):
+    # Use the factory to create the LU, which automatically assigns a user
+    lu1 = lexical_unit_factory(
+        lemma="leg", language="en", part_of_speech=PartOfSpeech.NOUN
+    )
+    phrase = Phrase.objects.create(text="Break a leg", language="en", cefr="B2")
     phrase.units.add(lu1)
     assert lu1 in phrase.units.all()
 

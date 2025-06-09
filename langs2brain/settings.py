@@ -126,7 +126,14 @@ STATIC_ROOT = BASE_DIR / "staticfiles"  # or "/app/static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
-    # keep existing config …
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        # This allows you to be authenticated by logging into the Django admin
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        # This ensures endpoints are protected by default
+        "rest_framework.permissions.IsAuthenticated",
+    ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",

@@ -6,6 +6,8 @@ from learning.views import (
     LexicalUnitTranslationViewSet,
     PhraseViewSet,
     PhraseTranslationViewSet,
+    ResolveAndCreateLemmaView,
+    TaskStatusView,
 )
 
 # , WordTranslationViewSet
@@ -26,6 +28,8 @@ router.register(
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("resolve-lemma/", ResolveAndCreateLemmaView.as_view(), name="resolve-lemma"),
+    path("task-status/<str:task_id>/", TaskStatusView.as_view(), name="task-status"),
     # path("generate-phrases/", GeneratePhrasesView.as_view(), name="generate-phrases"),
     # path("task-status/<uuid:task_id>/", TaskStatusView.as_view(), name="task-status"),
 ]

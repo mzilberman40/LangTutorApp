@@ -9,3 +9,6 @@ app.autodiscover_tasks()
 
 # ✅ Укажи Redis как брокер
 app.conf.broker_url = "redis://redis:6379/0"
+
+# ✅ ADD THIS LINE to tell Celery where to store task results.
+app.conf.result_backend = "redis://redis:6379/1"

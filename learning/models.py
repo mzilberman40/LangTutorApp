@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.db import models
 
 from learning.enums import (
@@ -8,12 +9,15 @@ from learning.enums import (
     PhraseCategory,
     CEFR,
 )
-
-# from django.db.models import CheckConstraint, Q, F
+from learning.utils import get_canonical_lemma
 from learning.validators import bcp47_validator
 
 
 class LexicalUnit(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="lexical_units"
+    )
+
     lemma = models.CharField(max_length=100)
     unit_type = models.CharField(
         max_length=6,
@@ -39,10 +43,8 @@ class LexicalUnit(models.Model):
     date_added = models.DateTimeField(auto_now_add=True)
     last_reviewed = models.DateTimeField(null=True, blank=True)
     part_of_speech = models.CharField(
-        max_length=12,
+        max_length=32,
         choices=PartOfSpeech.choices,
-        blank=True,
-        default="",
         help_text="Part of speech",
     )
     pronunciation = models.CharField(
@@ -53,7 +55,7 @@ class LexicalUnit(models.Model):
     )
 
     class Meta:
-        unique_together = ("lemma", "language", "part_of_speech")
+        unique_together = ("user", "lemma", "language", "part_of_speech")
         indexes = [
             models.Index(fields=["lemma"]),
             models.Index(fields=["language"]),
@@ -61,22 +63,28 @@ class LexicalUnit(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        if self.lemma:
-            # 1. Canonicalize lemma: spaces and lowercase
-            self.lemma = " ".join(self.lemma.split()).lower()
+        # Use the utility function for canonicalization
+        self.lemma = get_canonical_lemma(self.lemma)
 
-        # 2. Set unit_type based on the canonicalized lemma
-        if self.lemma and " " in self.lemma:  # Check self.lemma after it's processed
+        # Set unit_type based on the now definitively canonical lemma
+        if self.lemma and " " in self.lemma:
             self.unit_type = LexicalUnitType.COLLOC
-        else:  # Handles single words and also empty/None lemmas if they reach here
+        else:
             self.unit_type = LexicalUnitType.SINGLE
 
         super().save(*args, **kwargs)
 
     def __str__(self):
+        # The new, user-aware __str__ method
+        details = ""
         if self.part_of_speech:
-            return f"{self.lemma} ({self.part_of_speech}) [{self.language}]"
-        return f"{self.lemma} [{self.language}]"
+            details += f"({self.part_of_speech}) "
+
+        # Safely get username, self.user might not be loaded
+        username = (
+            self.user.username if hasattr(self, "user") and self.user else "No-User"
+        )
+        return f"{self.lemma} {details}[{self.language}] ({username})"
 
 
 class LexicalUnitTranslation(models.Model):

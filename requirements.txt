@@ -1,5 +1,5 @@
 environs~=14.1.1
-openai~=1.79.0
+openai>=1.86,<2.0
 Django>=5.2.1,<5.3
 djangorestframework>=3.16.0,<3.17
 pytest>=8.3.5,<8.4
@@ -9,3 +9,4 @@ redis>=6.1.0,<6.2
 drf-spectacular>=0.28.0,<0.29
 drf-spectacular-sidecar>=2025.5.1,<2025.6
 django-filter>=25.1.0,<25.2
+langchain>=0.3.25,<0.4

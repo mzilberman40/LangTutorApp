@@ -1,9 +1,10 @@
 import os
 from pathlib import Path
 
-from ai.answer_with_llm import answer_with_llm
+from ai.answer_with_llm_old import answer_with_llm
 
 PROMPT_TEMPLATE_PATH = Path(__file__).parent / "prompts" / "phrase2cefr.txt"
+
 
 def phrase2cefr(phrase: str, language: str, client, model="gpt-3.5-turbo") -> str:
     """

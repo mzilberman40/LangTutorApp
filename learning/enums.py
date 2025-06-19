@@ -50,3 +50,10 @@ class PhraseCategory(models.TextChoices):
 class LexicalUnitType(models.TextChoices):
     SINGLE = "single", "Single word"
     COLLOC = "colloc", "Collocation / phrasal verb"
+
+
+class ValidationStatus(models.TextChoices):
+    UNVERIFIED = "unverified", "Unverified"
+    VALID = "valid", "Valid"
+    MISMATCH = "mismatch", "Mismatch"  # Несоответствие
+    FAILED = "failed", "Failed"  # Ошибка при проверке

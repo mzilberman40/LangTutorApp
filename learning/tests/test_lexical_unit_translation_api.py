@@ -1,6 +1,8 @@
 # In learning/tests/test_lexical_unit_translation_api.py
 import pytest
 from django.urls import reverse
+from rest_framework import status
+
 from learning.models import LexicalUnit, LexicalUnitTranslation
 from learning.enums import PartOfSpeech
 
@@ -98,3 +100,36 @@ class TestLexicalUnitTranslationAPI:
         assert LexicalUnitTranslation.objects.filter(
             source_unit=source_lu, target_unit=target_lu1
         ).exists()
+
+    def test_cannot_create_translation_for_other_user_units(
+        self, authenticated_client, lexical_unit_factory, user_factory
+    ):
+        """
+        Проверяет, что пользователь не может создать перевод, используя чужую LU.
+        """
+        # Arrange: Создаем второго пользователя и LU для него
+        other_user = user_factory(username="other_user")
+        other_user_lu = lexical_unit_factory(
+            user=other_user,
+            lemma="other_word",
+            language="fr",
+            part_of_speech=PartOfSpeech.NOUN,
+        )
+
+        # Создаем LU для нашего основного пользователя (который залогинен в authenticated_client)
+        my_lu = lexical_unit_factory(
+            lemma="my_word", language="en", part_of_speech=PartOfSpeech.NOUN
+        )
+
+        url = reverse("lexicalunittranslation-list")
+        payload = {
+            "source_unit": my_lu.id,
+            "target_unit": other_user_lu.id,  # Пытаемся привязаться к чужой LU
+        }
+
+        # Act: Выполняем запрос
+        response = authenticated_client.post(url, payload, format="json")
+
+        # Assert: Ожидаем ошибку валидации
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "belong to the same user" in str(response.data)

@@ -8,6 +8,7 @@ from learning.enums import (
     TranslationType,
     PhraseCategory,
     CEFR,
+    ValidationStatus,
 )
 from learning.utils import get_canonical_lemma
 from learning.validators import bcp47_validator
@@ -52,6 +53,19 @@ class LexicalUnit(models.Model):
         blank=True,
         default="",
         help_text="Phonetic transcription or IPA",
+    )
+
+    validation_status = models.CharField(
+        max_length=10,
+        choices=ValidationStatus.choices,
+        default=ValidationStatus.UNVERIFIED,
+        help_text="The status of the background validation check.",
+    )
+
+    validation_notes = models.TextField(
+        blank=True,
+        default="",
+        help_text="Notes from the validation process, e.g., suggested corrections.",
     )
 
     class Meta:
@@ -105,6 +119,13 @@ class LexicalUnitTranslation(models.Model):
         blank=True,
         help_text="How confident the system is about this translation (0–1)",
     )
+
+    validation_status = models.CharField(
+        max_length=10,
+        choices=ValidationStatus.choices,  # Используем тот же Enum
+        default=ValidationStatus.UNVERIFIED,
+    )
+    validation_notes = models.TextField(blank=True, default="")
 
     class Meta:
         unique_together = ("source_unit", "target_unit")

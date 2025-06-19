@@ -49,15 +49,25 @@ def test_endpoints_require_authentication(
     assert response.status_code in [401, 403], f"URL '{url_name}' should be protected"
 
 
-def test_resolve_lemma_is_public(api_client):
+def test_resolve_lemma_requires_authentication(api_client):
     """
-    Verifies that the resolve-lemma endpoint is accessible without authentication,
-    as per our design.
+    Проверяет, что эндпоинт resolve-lemma ЗАЩИЩЕН и возвращает 403
+    для неаутентифицированных пользователей.
     """
     url = reverse("resolve-lemma")
     payload = {"lemma": "test", "language": "en"}
     response = api_client.post(url, payload, format="json")
+    # Ожидаем, что доступ будет запрещен, так как это правильное поведение
+    assert response.status_code == 403
 
-    # We expect a 200 OK or 404 Not Found from the service, but not a 401/403 permission error.
-    assert response.status_code != 401
-    assert response.status_code != 403
+
+def test_resolve_lemma_is_accessible_for_authenticated_user(authenticated_client):
+    """
+    Проверяет, что эндпоинт resolve-lemma ДОСТУПЕН для
+    аутентифицированных пользователей.
+    """
+    url = reverse("resolve-lemma")
+    payload = {"lemma": "test", "language": "en"}
+    response = authenticated_client.post(url, payload, format="json")
+    # Для аутентифицированного пользователя мы ожидаем успешного запуска задачи
+    assert response.status_code == 202

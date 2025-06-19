@@ -41,7 +41,8 @@ from learning.tasks import (
     resolve_lemma_async,
 )
 from learning.utils import get_canonical_lemma
-from services.get_lemma_details import get_lemma_details
+
+# from services.get_lemma_details import get_lemma_details
 
 logger = logging.getLogger(__name__)
 
@@ -251,7 +252,7 @@ class LexicalUnitViewSet(viewsets.ModelViewSet):
 
         validated_data = request_serializer.validated_data
         target_translation_language = validated_data["target_translation_language"]
-        cefr_level = validated_data["cefr_level"]
+        cefr_level = validated_data["cefr"]
 
         # The language of the LexicalUnit itself will be the language of the examples (lang2 for unit2phrases)
         example_language_code = unit.language
@@ -446,6 +447,22 @@ class ResolveAndCreateLemmaView(APIView):
 class TaskStatusView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="Get Task Status and Result",
+        description="Retrieves the status and result of a background task given its ID.",
+        responses={
+            200: inline_serializer(
+                name="TaskStatusResponse",
+                fields={
+                    "task_id": serializers.CharField(),
+                    "status": serializers.CharField(),
+                    "result": serializers.JSONField(
+                        help_text="The task's result. Can be a list, dict, or string depending on the task."
+                    ),
+                },
+            )
+        },
+    )
     def get(self, request, task_id, *args, **kwargs):
         """
         Retrieves the status and result of a Celery task.

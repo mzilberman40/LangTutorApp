@@ -11,14 +11,16 @@ from learning.models import (
     LexicalUnitType,
 )
 from learning.utils import get_canonical_lemma
-from learning.validators import bcp47_validator
+from learning.validators import bcp47_validator, supported_language_validator
 
 
 class ResolveLemmaRequestSerializer(serializers.Serializer):
     """Validates the input for the lemma resolution/creation endpoint."""
 
     lemma = serializers.CharField(max_length=100)
-    language = serializers.CharField(max_length=16, validators=[bcp47_validator])
+    language = serializers.CharField(
+        max_length=16, validators=[bcp47_validator, supported_language_validator]
+    )
     part_of_speech = serializers.ChoiceField(
         choices=PartOfSpeech.choices,
         required=False,  # This field is optional in the request
@@ -46,6 +48,9 @@ class ResolvedLemmaResponseSerializer(serializers.Serializer):
 class LexicalUnitSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
     unit_type = serializers.CharField(read_only=True)
+    language = serializers.CharField(
+        max_length=16, validators=[bcp47_validator, supported_language_validator]
+    )
 
     class Meta:
         model = LexicalUnit
@@ -61,9 +66,17 @@ class LexicalUnitSerializer(serializers.ModelSerializer):
             "last_reviewed",
             "part_of_speech",
             "pronunciation",
+            "validation_status",
+            "validation_notes",
         ]
-        read_only_fields = ("unit_type", "date_added", "last_reviewed", "user")
-        # NOTE: There are no 'validators' here. The logic is now in the `validate` method.
+        read_only_fields = (
+            "unit_type",
+            "date_added",
+            "last_reviewed",
+            "user",
+            "validation_status",
+            "validation_notes",
+        )
 
     def validate(self, data):
         """
@@ -95,7 +108,16 @@ class LexicalUnitSerializer(serializers.ModelSerializer):
 class LexicalUnitTranslationSerializer(serializers.ModelSerializer):
     class Meta:
         model = LexicalUnitTranslation
-        fields = "__all__"
+        fields = [
+            "id",
+            "source_unit",
+            "target_unit",
+            "translation_type",
+            "confidence",
+            "validation_status",
+            "validation_notes",
+        ]
+        read_only_fields = ("validation_status", "validation_notes")
 
     def _primary_lang(self, code: str) -> str:
         """Return the primary sub-tag of a BCP-47 code (e.g. 'en' from 'en-GB')."""
@@ -105,14 +127,31 @@ class LexicalUnitTranslationSerializer(serializers.ModelSerializer):
         src = data["source_unit"]
         tgt = data["target_unit"]
 
-        # ❶ self-translation
+        # ❶ Проверка на само-перевод
         if src == tgt:
             raise serializers.ValidationError("A unit cannot translate to itself.")
 
-        # ❷ same primary language
+        # ❷ Проверка на разные языки
         if self._primary_lang(src.language) == self._primary_lang(tgt.language):
             raise serializers.ValidationError(
                 "Source and target units must be in different languages."
+            )
+
+        # ❸ Проверка, что обе единицы принадлежат одному и тому же пользователю
+        if src.user != tgt.user:
+            raise serializers.ValidationError(
+                "Source and target units must belong to the same user."
+            )
+
+        # ❹ Проверка, что текущий пользователь является владельцем этих единиц
+        request = self.context.get("request")
+        if not request or not hasattr(request, "user"):
+            # Эта проверка на случай, если сериализатор используется вне контекста запроса
+            raise serializers.ValidationError("Request context with user is required.")
+
+        if src.user != request.user:
+            raise serializers.ValidationError(
+                "You can only create translations for your own lexical units."
             )
 
         return data
@@ -128,7 +167,7 @@ class LexicalUnitInputSerializer(serializers.Serializer):
     lemma = serializers.CharField(max_length=100)
     language = serializers.CharField(
         max_length=16,  # Or your model's max_length for LexicalUnit.language
-        validators=[bcp47_validator],  # <--- APPLY VALIDATOR HERE
+        validators=[bcp47_validator, supported_language_validator],
     )
     part_of_speech = serializers.ChoiceField(
         choices=PartOfSpeech.choices,
@@ -136,13 +175,6 @@ class LexicalUnitInputSerializer(serializers.Serializer):
     pronunciation = serializers.CharField(
         max_length=100, required=False, allow_blank=True, default=""
     )
-
-    def validate_language(self, value):
-        # You might want to add your bcp47_validator here if not relying on model validation alone
-        # For now, assuming basic CharField validation. If using bcp47_validator:
-        # from .validators import bcp47_validator
-        # bcp47_validator(value) # This would raise ValidationError if invalid
-        return value
 
 
 # --- Bulk Translation Serializer ---
@@ -315,9 +347,9 @@ class PhraseTranslationSerializer(serializers.ModelSerializer):
 class PhraseGenerationRequestSerializer(serializers.Serializer):
     target_translation_language = serializers.CharField(
         max_length=16,  # Or a suitable length for BCP47 codes
-        validators=[bcp47_validator],  # <--- APPLY THE VALIDATOR HERE
+        validators=[bcp47_validator, supported_language_validator],
     )
-    cefr_level = serializers.ChoiceField(choices=CEFR.choices)
+    cefr = serializers.ChoiceField(choices=CEFR.choices)
 
 
 class EnrichDetailsRequestSerializer(serializers.Serializer):
@@ -334,5 +366,5 @@ class TranslateRequestSerializer(serializers.Serializer):
     """Validates the request for the translation endpoint."""
 
     target_language_code = serializers.CharField(
-        max_length=16, validators=[bcp47_validator]  # Or a suitable length
+        max_length=16, validators=[bcp47_validator, supported_language_validator]
     )

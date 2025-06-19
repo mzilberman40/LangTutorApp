@@ -1,12 +1,11 @@
 from pathlib import Path
 
-from ai.answer_with_llm import answer_with_llm
+from ai.answer_with_llm_old import answer_with_llm
 from ai.client import get_client
 
 import logging
 
 logger = logging.getLogger(__name__)
-client = get_client()
 
 PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "unit2phrase.txt"
 

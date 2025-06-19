@@ -1,89 +1,86 @@
-# In a new file: services/translate_lemma.py
-
-import json
+# In learning/services/translate_lemma.py
 import logging
-from pathlib import Path
-from typing import Dict, Any
-
+from typing import Optional, List
+from pydantic import BaseModel
 from learning.enums import PartOfSpeech
 from learning.models import LexicalUnit
 from ai.answer_with_llm import answer_with_llm
+from ai.get_prompt import get_templated_messages
 
 logger = logging.getLogger(__name__)
 
-PROMPT_PATH = (
-    Path(__file__).resolve().parent.parent
-    / "prompts"
-    / "translate_lemma_with_details.txt"
-)
 
-LLM_MODEL = "meta-llama/Llama-3.3-70B-Instruct"
+# Pydantic модели остаются без изменений
+class TranslationDetail(BaseModel):
+    part_of_speech: PartOfSpeech
+    pronunciation: Optional[str] = None
+
+
+class TranslationResponse(BaseModel):
+    translated_lemma: Optional[str] = None
+    translation_details: List[TranslationDetail]
+
+
+# 1. Промпт теперь хранится здесь, а не во внешнем файле
+_SYSTEM_PROMPT = """
+You are an expert translator. The lemma to translate is "{source_lemma}".
+It is primarily used as a {source_pos} in its original language, "{source_language_code}".
+Translate this lemma into {target_language_code}.
+
+Provide the most common translation. For this translated lemma, provide all its distinct primary parts of speech and their corresponding most common IPA pronunciations in {target_language_code}.
+If the pronunciation of the translation is the same for its multiple parts of speech, you can repeat it.
+
+You MUST respond ONLY with a valid JSON object that conforms to the provided JSON Schema.
+For each "part_of_speech" field (for the translation), strictly use one of these exact values if applicable: {pos_enum_values_list}.
+If the original lemma cannot be translated or if details for the translation cannot be determined, you can use null for "translated_lemma" or provide an empty "translation_details" list.
+If pronunciation cannot be determined for a specific part of speech of the translation, use null for its "pronunciation" field.
+Ensure "translation_details" is always a list.
+"""
 
 
 def translate_lemma_with_details(
     client, source_lu: LexicalUnit, target_language_code: str
-) -> Dict[str, Any]:
+) -> Optional[TranslationResponse]:
     """
-    Calls an LLM to translate a given LexicalUnit and get details for the translation.
-
-    Args:
-        client: An OpenAI-compatible API client.
-        source_lu: The specific LexicalUnit instance to translate (must have POS).
-        target_language_code: The BCP47 code of the language to translate into.
-
-    Returns:
-        A dictionary containing the translated lemma and its details, e.g.,
-        {'translated_lemma': '...', 'translation_details': [{'part_of_speech': '...', 'pronunciation': '...'}]},
-        or an empty dictionary on failure.
+    Calls an LLM to translate a given LexicalUnit and get details for the translation,
+    using a Pydantic model for guaranteed JSON structure.
     """
     if not source_lu.part_of_speech:
         logger.warning(
-            f"Cannot translate LU {source_lu.id} ('{source_lu.lemma}') because its Part of Speech is not specified."
+            f"Cannot translate LU {source_lu.id} ('{source_lu.lemma}') because its POS is not specified."
         )
-        return {}
+        return None
 
     try:
-        prompt_template = PROMPT_PATH.read_text(encoding="utf-8")
-        pos_choices_str = ", ".join(
-            [choice[0] for choice in PartOfSpeech.choices if choice[0]]
-        )
+        pos_enum_list = ", ".join([pos.value for pos in PartOfSpeech])
 
-        system_prompt = prompt_template.format(
-            source_lemma=source_lu.lemma,
-            source_pos=source_lu.part_of_speech,
-            source_language_code=source_lu.language,
-            target_language_code=target_language_code,
-            pos_enum_values_list=pos_choices_str,
-        )
-    except Exception as e:
-        logger.error(
-            f"Failed to read/format translate_lemma prompt for LU '{source_lu.lemma}': {e}"
-        )
-        return {}
+        params = {
+            "source_lemma": source_lu.lemma,
+            "source_pos": source_lu.get_part_of_speech_display(),
+            "source_language_code": source_lu.language,
+            "target_language_code": target_language_code,
+            "pos_enum_values_list": pos_enum_list,
+        }
 
-    try:
-        user_prompt = f"Translate '{source_lu.lemma}' ({source_lu.part_of_speech}) from {source_lu.language} to {target_language_code}."
+        # 2. Логика чтения файла заменена на использование переменной
+        messages = get_templated_messages(
+            system_prompt=_SYSTEM_PROMPT, user_prompt="", params=params
+        )
 
         response_str = answer_with_llm(
             client=client,
-            prompt=user_prompt,
-            system_prompt=system_prompt,
-            model=LLM_MODEL,  # Using a capable model for translation and structured data
+            messages=messages,
+            model="meta-llama/Llama-3.3-70B-Instruct",
+            extra_body={"guided_json": TranslationResponse.model_json_schema()},
             prettify=False,
-            temperature=0.2,  # Slightly higher temp can sometimes yield better translations
+            temperature=0.2,
         )
 
-        response_data = json.loads(response_str)
-        logger.info(
-            f"Successfully fetched translation for '{source_lu.lemma}' to '{target_language_code}': {response_data}"
-        )
-        return response_data
+        return TranslationResponse.model_validate_json(response_str)
 
-    except json.JSONDecodeError as e:
-        logger.error(
-            f"Failed to decode JSON from LLM for translation of '{source_lu.lemma}': {e}. Response: {response_str}"
-        )
     except Exception as e:
-        logger.error(f"LLM call failed during translation of '{source_lu.lemma}': {e}")
-
-    return {}  # Return empty dict on any failure
+        logger.error(
+            f"LLM call or parsing failed during translation of '{source_lu.lemma}': {e}",
+            exc_info=True,
+        )
+        return None

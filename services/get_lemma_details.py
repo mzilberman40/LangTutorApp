@@ -1,89 +1,112 @@
-# In services/get_lemma_details.py
+"""Langs2Brain – fetch lemma details via LLM.
 
-import json
+Queries the LLM for every common part of speech and its IPA pronunciation
+for a lexical unit, using guided-JSON that matches the Pydantic schema
+(CharacterProfileResponse).  Any response is strictly validated before use.
+"""
+
+from __future__ import annotations
+
 import logging
-from pathlib import Path
-from typing import List, Dict
+from typing import List
 
+# from openai import OpenAI  # type: ignore
+from pydantic import BaseModel
+
+from ai.answer_with_llm import answer_with_llm
+from ai.client import get_client
+from ai.get_prompt import get_templated_messages
 from learning.enums import PartOfSpeech
 from learning.models import LexicalUnit
-from ai.answer_with_llm import (
-    answer_with_llm,
-)  # Assuming this is the correct import path
 
 logger = logging.getLogger(__name__)
-# LLM_MODEL = "gpt-4o"  # More capable model for structured JSON tasks
+
 LLM_MODEL = "meta-llama/Llama-3.3-70B-Instruct"
 
-PROMPT_PATH = (
-    Path(__file__).resolve().parent.parent / "prompts" / "get_lemma_details.txt"
-)
+# ─────────────────────── Pydantic models ──────────────────────────────
 
 
-def get_lemma_details(client, lexical_unit: LexicalUnit) -> List[Dict]:
-    """
-    Calls an LLM to get details (all possible POS and their pronunciations)
-    for a given LexicalUnit.
+class CharacterProfile(BaseModel):
+    """Single POS–pronunciation pair."""
+
+    part_of_speech: PartOfSpeech
+    pronunciation: str | None = None
+
+
+class CharacterProfileResponse(BaseModel):
+    """Top-level wrapper required by guided_json."""
+
+    lemma_details: List[CharacterProfile]
+
+
+# ───────────────────────── Prompt templates ───────────────────────────
+
+_PROMPT_TEMPLATE = """
+You are an expert linguistic analyst. Your task is to analyze the lexical unit "{lemma}" within the context of the language "{language}".
+
+**CRITICAL RULE: First, determine if "{lemma}" is a recognized word in the language "{language}". This includes common loanwords. If it is NOT a recognized word, you MUST return an empty list for "lemma_details": {{"lemma_details": []}}. Do not proceed with analysis if the word does not belong to the language.**
+
+If the word is recognized, return JSON that conforms to the supplied schema.
+• The field "part_of_speech" **must** be one of: {pos_enum_values_list}.
+• If the lexical unit is a proper noun or its POS is outside the list, return an empty list.
+• If a pronunciation cannot be determined for an entry, set its value to null.
+
+Respond with nothing except valid JSON.
+""".strip()
+
+_USER_PROMPT = 'The lexical unit is: "{lemma}"\nIts language code is: "{language}"'
+
+
+# ──────────────────────────── Service ─────────────────────────────────
+# client = get_client()
+
+
+def get_lemma_details(client, lexical_unit: LexicalUnit) -> list[dict]:
+    """Return all POS variants and IPA pronunciations for *lexical_unit*.
 
     Args:
-        client: An OpenAI-compatible API client.
-        lexical_unit: The LexicalUnit instance to enrich.
+        client: OpenAI-compatible client instance.
+        lexical_unit: The lexical unit to enrich.
 
     Returns:
-        A list of dictionaries, where each dictionary represents a POS variant
-        (e.g., [{'part_of_speech': 'noun', 'pronunciation': '/.../'}]),
-        or an empty list if no details are found or an error occurs.
+        A list like:
+        `[{"part_of_speech": "noun", "pronunciation": "/tʃæt/"}, …]`.
+        An empty list is returned on any error or when nothing is found.
     """
     try:
-        prompt_template = PROMPT_PATH.read_text(encoding="utf-8")
         pos_choices_str = ", ".join(
-            [choice[0] for choice in PartOfSpeech.choices if choice[0]]
+            choice[0] for choice in PartOfSpeech.choices if choice[0]
         )
 
-        # The system prompt now only contains the general instructions and the valid POS choices.
-        system_prompt = prompt_template.format(pos_enum_values_list=pos_choices_str)
+        params = {
+            "lemma": lexical_unit.lemma,
+            "language": lexical_unit.language,
+            "pos_enum_values_list": pos_choices_str,
+        }
 
-        # The user prompt contains the specific data to be analyzed for this one request.
-        user_prompt = f'The lexical unit is: "{lexical_unit.lemma}"\nIts language code is: "{lexical_unit.language}"'
-
-    except Exception as e:
-        logger.error(
-            f"Failed to read or format get_lemma_details prompt for LU '{lexical_unit.lemma}': {e}"
+        messages = get_templated_messages(
+            system_prompt=_PROMPT_TEMPLATE, user_prompt=_USER_PROMPT, params=params
         )
-        return []
 
-    try:
         response_str = answer_with_llm(
+            messages=messages,
             client=client,
-            prompt=user_prompt,  # <<< DATA to be processed is here
-            system_prompt=system_prompt,  # <<< INSTRUCTIONS are here
             model=LLM_MODEL,
             prettify=False,
-            temperature=0.0,  # Low temperature for deterministic structured output
+            temperature=0.0,
+            extra_body={"guided_json": CharacterProfileResponse.model_json_schema()},
         )
 
-        response_data = json.loads(response_str)
-        logger.debug(response_data)
-        details_list = response_data.get("lemma_details", [])
+        validated = CharacterProfileResponse.model_validate_json(response_str)
+        logger.debug("Validated LLM response: %s", validated)
 
-        if not isinstance(details_list, list):
-            logger.warning(
-                f"LLM response for '{lexical_unit.lemma}' details was not a list: {details_list}"
-            )
-            return []
+        return [profile.model_dump() for profile in validated.lemma_details]
 
-        logger.info(
-            f"Successfully fetched details for '{lexical_unit.lemma}': {details_list}"
-        )
-        return details_list
-
-    except json.JSONDecodeError as e:
+    except Exception as exc:  # noqa: BLE001  (logged & swallowed)
         logger.error(
-            f"Failed to decode JSON from LLM for '{lexical_unit.lemma}' details: {e}. Response: {response_str}"
+            "Fetching details for %s failed: %s",
+            lexical_unit.lemma,
+            exc,
+            exc_info=True,
         )
-    except Exception as e:
-        logger.error(
-            f"LLM call failed during get_lemma_details for '{lexical_unit.lemma}': {e}"
-        )
-
-    return []  # Return empty list on any other failure
+        return []

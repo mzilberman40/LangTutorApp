@@ -149,3 +149,48 @@ SPECTACULAR_SETTINGS = {
     # optional tweaks:
     # "SERVE_INCLUDE_SCHEMA": False,
 }
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "default",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "WARNING",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "learning": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+    },
+}
+
+SUPPORTED_LANGUAGES = [
+    "en",
+    "en-GB",
+    "en-US",
+    "ru",
+    "de",
+    "fr",
+    "es",
+    "it",
+    "he",
+    # Добавьте другие языки по мере необходимости
+]

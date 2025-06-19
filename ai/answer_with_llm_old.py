@@ -2,21 +2,24 @@ from utils.prettify_string import prettify_string
 
 
 def answer_with_llm(
-    messages: list,
+    prompt: str,
     client,
     model,
+    system_prompt="You are a helpful assistant",
     max_tokens=512,
     prettify=True,
     temperature=None,
-    extra_body: dict = None,
 ) -> str:
 
+    messages = []
+
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+
+    messages.append({"role": "user", "content": prompt})
+
     completion = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        max_tokens=max_tokens,
-        temperature=temperature,
-        extra_body=extra_body,
+        model=model, messages=messages, max_tokens=max_tokens, temperature=temperature
     )
 
     if prettify:

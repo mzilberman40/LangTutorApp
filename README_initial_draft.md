@@ -1,4 +1,4 @@
-# LangTutorApp
+[README.md](README_initial_draft.md)# LangTutorApp
 
 An AI-powered language learning application.  
 This project is currently in early development and serves as a base for experimenting with new concepts in language acquisition and educational technology.

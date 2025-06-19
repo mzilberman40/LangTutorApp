@@ -2,7 +2,7 @@
 import logging
 from typing import Optional, List
 from pydantic import BaseModel
-from learning.enums import PartOfSpeech
+from learning.enums import PartOfSpeech, LexicalCategory
 from learning.models import LexicalUnit
 from ai.answer_with_llm import answer_with_llm
 from ai.get_prompt import get_templated_messages
@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 # Pydantic модели остаются без изменений
 class TranslationDetail(BaseModel):
+    lexical_category: LexicalCategory  # <-- ДОБАВЛЯЕМ
     part_of_speech: PartOfSpeech
     pronunciation: Optional[str] = None
 
@@ -21,20 +22,17 @@ class TranslationResponse(BaseModel):
     translation_details: List[TranslationDetail]
 
 
-# 1. Промпт теперь хранится здесь, а не во внешнем файле
 _SYSTEM_PROMPT = """
-You are an expert translator. The lemma to translate is "{source_lemma}".
-It is primarily used as a {source_pos} in its original language, "{source_language_code}".
+You are an expert translator. The source lexical unit is "{source_lemma}".
+It is a {source_lexical_category} and its primary part of speech is {source_pos} in its original language, "{source_language_code}".
 Translate this lemma into {target_language_code}.
 
-Provide the most common translation. For this translated lemma, provide all its distinct primary parts of speech and their corresponding most common IPA pronunciations in {target_language_code}.
-If the pronunciation of the translation is the same for its multiple parts of speech, you can repeat it.
+For the most common translation, provide all its distinct structural types (`lexical_category`) and their corresponding primary parts of speech (`part_of_speech`), along with IPA pronunciations.
 
-You MUST respond ONLY with a valid JSON object that conforms to the provided JSON Schema.
-For each "part_of_speech" field (for the translation), strictly use one of these exact values if applicable: {pos_enum_values_list}.
-If the original lemma cannot be translated or if details for the translation cannot be determined, you can use null for "translated_lemma" or provide an empty "translation_details" list.
-If pronunciation cannot be determined for a specific part of speech of the translation, use null for its "pronunciation" field.
-Ensure "translation_details" is always a list.
+**CRITICAL RULES:**
+-   `lexical_category` MUST be one of: {lexical_category_enum_list}.
+-   `part_of_speech` MUST be one of: {pos_enum_values_list}.
+-   You MUST respond ONLY with a valid JSON object.
 """
 
 
@@ -53,13 +51,17 @@ def translate_lemma_with_details(
 
     try:
         pos_enum_list = ", ".join([pos.value for pos in PartOfSpeech])
+        # +++ Получаем список лексических категорий
+        lexical_category_enum_list = ", ".join([cat.value for cat in LexicalCategory])
 
         params = {
             "source_lemma": source_lu.lemma,
+            "source_lexical_category": source_lu.get_lexical_category_display(),  # <-- Добавили для контекста
             "source_pos": source_lu.get_part_of_speech_display(),
             "source_language_code": source_lu.language,
             "target_language_code": target_language_code,
             "pos_enum_values_list": pos_enum_list,
+            "lexical_category_enum_list": lexical_category_enum_list,  # <-- Передаем в промпт
         }
 
         # 2. Логика чтения файла заменена на использование переменной

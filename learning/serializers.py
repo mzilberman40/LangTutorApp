@@ -1,14 +1,13 @@
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 
-from learning.enums import CEFR, PartOfSpeech
+from learning.enums import CEFR, PartOfSpeech, LexicalCategory
 from learning.models import (
     LexicalUnit,
     LexicalUnitTranslation,
     TranslationType,
     Phrase,
     PhraseTranslation,
-    LexicalUnitType,
 )
 from learning.utils import get_canonical_lemma
 from learning.validators import bcp47_validator, supported_language_validator
@@ -30,8 +29,9 @@ class ResolveLemmaRequestSerializer(serializers.Serializer):
 
 
 class ResolvedLemmaVariantSerializer(serializers.Serializer):
-    """Represents a single POS variant returned by the LLM."""
+    """Represents a single structural/POS variant returned by the LLM."""
 
+    lexical_category = serializers.CharField()  # <-- Добавили
     part_of_speech = serializers.CharField()
     pronunciation = serializers.CharField(allow_blank=True, allow_null=True)
 
@@ -47,10 +47,12 @@ class ResolvedLemmaResponseSerializer(serializers.Serializer):
 
 class LexicalUnitSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
-    unit_type = serializers.CharField(read_only=True)
+    # Поле unit_type полностью удалено
     language = serializers.CharField(
         max_length=16, validators=[bcp47_validator, supported_language_validator]
     )
+    # +++ Добавляем новое поле. Делаем его read_only, т.к. оно будет вычисляться сервисами, а не задаваться клиентом напрямую.
+    lexical_category = serializers.CharField(read_only=True)
 
     class Meta:
         model = LexicalUnit
@@ -58,7 +60,7 @@ class LexicalUnitSerializer(serializers.ModelSerializer):
             "id",
             "user",
             "lemma",
-            "unit_type",
+            "lexical_category",  # <-- Добавили
             "language",
             "status",
             "notes",
@@ -70,12 +72,12 @@ class LexicalUnitSerializer(serializers.ModelSerializer):
             "validation_notes",
         ]
         read_only_fields = (
-            "unit_type",
             "date_added",
             "last_reviewed",
             "user",
             "validation_status",
             "validation_notes",
+            "lexical_category",  # <-- Добавили в read_only
         )
 
     def validate(self, data):
@@ -166,8 +168,11 @@ class LexicalUnitInputSerializer(serializers.Serializer):
 
     lemma = serializers.CharField(max_length=100)
     language = serializers.CharField(
-        max_length=16,  # Or your model's max_length for LexicalUnit.language
+        max_length=16,
         validators=[bcp47_validator, supported_language_validator],
+    )
+    lexical_category = serializers.ChoiceField(
+        choices=LexicalCategory.choices,
     )
     part_of_speech = serializers.ChoiceField(
         choices=PartOfSpeech.choices,

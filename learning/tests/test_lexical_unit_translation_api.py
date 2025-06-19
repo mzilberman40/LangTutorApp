@@ -4,7 +4,7 @@ from django.urls import reverse
 from rest_framework import status
 
 from learning.models import LexicalUnit, LexicalUnitTranslation
-from learning.enums import PartOfSpeech
+from learning.enums import PartOfSpeech, LexicalCategory
 
 pytestmark = pytest.mark.django_db
 
@@ -83,11 +83,22 @@ class TestLexicalUnitTranslationAPI:
             "source_unit": {
                 "lemma": "run fast",
                 "language": "en-GB",
-                "part_of_speech": "phrasal_verb",
+                "lexical_category": LexicalCategory.PHRASAL_VERB,  # <-- Новое поле
+                "part_of_speech": PartOfSpeech.VERB,  # <-- Корректная часть речи
             },
             "targets": [
-                {"lemma": "бежать быстро", "language": "ru", "part_of_speech": "verb"},
-                {"lemma": "course rapide", "language": "fr", "part_of_speech": "noun"},
+                {
+                    "lemma": "бежать быстро",
+                    "language": "ru",
+                    "lexical_category": LexicalCategory.COLLOCATION,
+                    "part_of_speech": PartOfSpeech.VERB,
+                },
+                {
+                    "lemma": "course rapide",
+                    "language": "fr",
+                    "lexical_category": LexicalCategory.COLLOCATION,
+                    "part_of_speech": PartOfSpeech.NOUN,
+                },
             ],
         }
 

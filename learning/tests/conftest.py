@@ -2,6 +2,8 @@ import os
 import pytest
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
+
+from learning.enums import LexicalCategory, PartOfSpeech
 from learning.models import LexicalUnit
 
 
@@ -42,14 +44,17 @@ def authenticated_client(api_client, default_user):
 @pytest.fixture
 def lexical_unit_factory(db, default_user):
     """
-    A factory for creating LexicalUnit instances, automatically associating
-    them with the default user.
+    A factory for creating LexicalUnit instances with sensible defaults.
     """
 
     def create_lu(**kwargs):
-        # If a user is not specified in the call, use the default user.
-        if "user" not in kwargs:
-            kwargs["user"] = default_user
+        # Устанавливаем пользователя по умолчанию, если он не передан
+        kwargs.setdefault("user", default_user)
+        # Устанавливаем категорию по умолчанию
+        kwargs.setdefault("lexical_category", LexicalCategory.SINGLE_WORD)
+        # Устанавливаем часть речи по умолчанию
+        kwargs.setdefault("part_of_speech", PartOfSpeech.NOUN)
+
         return LexicalUnit.objects.create(**kwargs)
 
     return create_lu

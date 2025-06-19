@@ -12,10 +12,6 @@ class PartOfSpeech(models.TextChoices):
     INTERJ = "interj", "Interjection"
     NUM = "num", "Numeral"
     PART = "part", "Particle"
-    COLLOCATION = "collocation", "Collocation"  # <-- New addition
-    PHRASAL_VERB = "phrasal_verb", "Phrasal Verb"
-    IDIOM = "idiom", "Idiom"
-    OTHER_MWU = "multi_word_unit", "Multi-Word Unit"  # A very generic fallback
 
 
 class CEFR(models.TextChoices):
@@ -47,9 +43,13 @@ class PhraseCategory(models.TextChoices):
     QUOTE = "QUOTE", "Quote"
 
 
-class LexicalUnitType(models.TextChoices):
-    SINGLE = "single", "Single word"
-    COLLOC = "colloc", "Collocation / phrasal verb"
+class LexicalCategory(models.TextChoices):
+    SINGLE_WORD = "SINGLE_WORD", "Single Word"
+    COLLOCATION = "COLLOCATION", "Collocation"
+    PHRASAL_VERB = "PHRASAL_VERB", "Phrasal Verb"
+    IDIOM = "IDIOM", "Idiom"
+    # Можно расширить в будущем
+    # PROVERB = "PROVERB", "Proverb"
 
 
 class ValidationStatus(models.TextChoices):

@@ -2,13 +2,13 @@ from django.contrib.auth.models import User
 from django.db import models
 
 from learning.enums import (
-    LexicalUnitType,
     LexicalUnitStatus,
     PartOfSpeech,
     TranslationType,
-    PhraseCategory,
     CEFR,
     ValidationStatus,
+    LexicalCategory,
+    PhraseCategory,
 )
 from learning.utils import get_canonical_lemma
 from learning.validators import bcp47_validator
@@ -20,11 +20,11 @@ class LexicalUnit(models.Model):
     )
 
     lemma = models.CharField(max_length=100)
-    unit_type = models.CharField(
-        max_length=6,
-        choices=LexicalUnitType.choices,
-        default=LexicalUnitType.SINGLE,
-        help_text="‘single’ = one token; ‘colloc’ = multi-word item",
+    lexical_category = models.CharField(
+        max_length=50,
+        choices=LexicalCategory.choices,
+        default=LexicalCategory.SINGLE_WORD,
+        help_text="The structural type of the lexical unit (e.g., single word, idiom).",
     )
     language = models.CharField(
         max_length=16,
@@ -69,36 +69,32 @@ class LexicalUnit(models.Model):
     )
 
     class Meta:
-        unique_together = ("user", "lemma", "language", "part_of_speech")
+        unique_together = (
+            "user",
+            "lemma",
+            "language",
+            "part_of_speech",
+            "lexical_category",
+        )
         indexes = [
             models.Index(fields=["lemma"]),
             models.Index(fields=["language"]),
             models.Index(fields=["part_of_speech"]),
+            models.Index(fields=["lexical_category"]),
         ]
 
     def save(self, *args, **kwargs):
-        # Use the utility function for canonicalization
+        # Логика определения unit_type по пробелу удаляется.
         self.lemma = get_canonical_lemma(self.lemma)
-
-        # Set unit_type based on the now definitively canonical lemma
-        if self.lemma and " " in self.lemma:
-            self.unit_type = LexicalUnitType.COLLOC
-        else:
-            self.unit_type = LexicalUnitType.SINGLE
-
         super().save(*args, **kwargs)
 
     def __str__(self):
-        # The new, user-aware __str__ method
-        details = ""
-        if self.part_of_speech:
-            details += f"({self.part_of_speech}) "
-
-        # Safely get username, self.user might not be loaded
+        # __str__ метод остается таким же, как в прошлой рекомендации.
+        details = f"({self.get_lexical_category_display()}, {self.get_part_of_speech_display()})"
         username = (
             self.user.username if hasattr(self, "user") and self.user else "No-User"
         )
-        return f"{self.lemma} {details}[{self.language}] ({username})"
+        return f"{self.lemma} {details} [{self.language}] ({username})"
 
 
 class LexicalUnitTranslation(models.Model):

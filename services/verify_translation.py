@@ -29,8 +29,9 @@ _SYSTEM_PROMPT = (
 )
 
 _USER_PROMPT = (
-    "Evaluate the translation of the {source_language} word '{source_lemma}' "
-    "({source_pos}) into {target_language} as '{target_lemma}'."
+    "Evaluate the translation of the {source_language} unit '{source_lemma}' "
+    "(category: {source_lexical_category}, POS: {source_pos}) "  # <-- Добавляем контекст
+    "into {target_language} as '{target_lemma}'."
 )
 
 
@@ -52,6 +53,7 @@ def get_translation_verification(
     params = {
         "source_language": source_unit.language,
         "source_lemma": source_unit.lemma,
+        "source_lexical_category": source_unit.get_lexical_category_display(),  # <-- Передаем в промпт
         "source_pos": source_unit.part_of_speech,
         "target_language": target_unit.language,
         "target_lemma": target_unit.lemma,

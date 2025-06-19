@@ -21,8 +21,16 @@ def test_enrich_adds_new_pos_variant_for_existing_lu(
 
     # LLM возвращает два варианта: существующий и новый
     mock_get_details.return_value = [
-        {"part_of_speech": "noun", "pronunciation": "/ˈkɒndʌkt/"},
-        {"part_of_speech": "verb", "pronunciation": "/kənˈdʌkt/"},
+        {
+            "lexical_category": "SINGLE_WORD",
+            "part_of_speech": "noun",
+            "pronunciation": "/ˈkɒndʌkt/",
+        },
+        {
+            "lexical_category": "SINGLE_WORD",
+            "part_of_speech": "verb",
+            "pronunciation": "/kənˈdʌkt/",
+        },
     ]
 
     # Act: Запускаем задачу обогащения для существительного
@@ -43,11 +51,18 @@ def test_translate_creates_multiple_variants_and_links(
     mock_translate.return_value = {
         "translated_lemma": "огонь",
         "translation_details": [
-            {"part_of_speech": "noun", "pronunciation": "/ɐˈɡonʲ/"},
-            {"part_of_speech": "verb", "pronunciation": "/ɐˈɡonʲitʲ/"},
+            {
+                "lexical_category": "SINGLE_WORD",
+                "part_of_speech": "noun",
+                "pronunciation": "/ɐˈɡonʲ/",
+            },
+            {
+                "lexical_category": "SINGLE_WORD",
+                "part_of_speech": "verb",
+                "pronunciation": "/ɐˈɡonʲitʲ/",
+            },
         ],
     }
-
     # FIX: Pass the user's ID to the task call.
     translate_unit_async(
         unit_id=source_lu.id, user_id=source_lu.user.id, target_language_code="ru"
@@ -66,15 +81,20 @@ def test_translate_creates_multiple_variants_and_links(
         source_unit=source_lu, target_unit=verb_translation
     ).exists()
 
+
 @patch("learning.tasks.get_lemma_details")
-def test_enrich_stops_if_initial_lu_is_mismatched(mock_get_details, lexical_unit_factory):
+def test_enrich_stops_if_initial_lu_is_mismatched(
+    mock_get_details, lexical_unit_factory
+):
     """
     Тестирует, что обогащение останавливается, если исходная LU имеет
     несоответствующую часть речи (MISMATCH).
     """
     # Arrange: Создаем LU с POS='noun', но LLM вернет только 'verb'.
     lu_to_test = lexical_unit_factory(lemma="delegate", part_of_speech="noun")
-    mock_get_details.return_value = [{"part_of_speech": "verb"}]
+    mock_get_details.return_value = [
+        {"lexical_category": "SINGLE_WORD", "part_of_speech": "verb"}
+    ]
 
     # Act: Запускаем задачу
     enrich_details_async(unit_id=lu_to_test.id, user_id=lu_to_test.user.id)
@@ -86,11 +106,15 @@ def test_enrich_stops_if_initial_lu_is_mismatched(mock_get_details, lexical_unit
     assert "LLM suggested: [verb]" in lu_to_test.validation_notes
 
     # 2. Самое главное: новый вариант (verb) НЕ должен быть создан
-    assert not LexicalUnit.objects.filter(lemma="delegate", part_of_speech="verb").exists()
+    assert not LexicalUnit.objects.filter(
+        lemma="delegate", part_of_speech="verb"
+    ).exists()
 
 
 @patch("learning.tasks.get_lemma_details")
-def test_enrich_stops_if_initial_lu_is_not_found_by_llm(mock_get_details, lexical_unit_factory):
+def test_enrich_stops_if_initial_lu_is_not_found_by_llm(
+    mock_get_details, lexical_unit_factory
+):
     """
     Тестирует, что обогащение останавливается, если LLM не находит
     никаких вариантов для леммы (FAILED).

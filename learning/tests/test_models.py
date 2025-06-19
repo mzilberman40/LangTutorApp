@@ -3,9 +3,9 @@
 import pytest
 from django.db import IntegrityError
 from learning.enums import (
-    LexicalUnitType,
     LexicalUnitStatus,
     PartOfSpeech,
+    LexicalCategory,
 )
 from learning.models import LexicalUnitTranslation, LexicalUnit
 
@@ -95,7 +95,7 @@ class TestLexicalUnitModel:
         assert lu.status == LexicalUnitStatus.LEARNING
         assert lu.notes == ""
         assert lu.lemma == "melon"
-        assert lu.unit_type == LexicalUnitType.SINGLE
+        assert lu.lexical_category == LexicalCategory.SINGLE_WORD
 
     def test_lexical_unit_str_representation(self, lexical_unit_factory):
         """Tests the __str__ method."""
@@ -104,11 +104,28 @@ class TestLexicalUnitModel:
         )
         # The __str__ method should now include the user
         assert (
-            str(lu_with_pos) == f"str_test_pos (adj) [fr] ({lu_with_pos.user.username})"
+            str(lu_with_pos)
+            == f"str_test_pos (Single Word, Adjective) [fr] ({lu_with_pos.user.username})"
         )
 
-
-# --- LexicalUnitTranslation Model Tests ---
+    def test_lu_uniqueness_allows_different_lexical_category(
+        self, lexical_unit_factory
+    ):
+        """Tests that different lexical_category allows creation."""
+        lexical_unit_factory(
+            lemma="test",
+            language="en",
+            part_of_speech=PartOfSpeech.VERB,
+            lexical_category=LexicalCategory.SINGLE_WORD,
+        )
+        # Та же лемма, но другая категория (например, фразовый глагол) - это другая сущность
+        lu_phrasal = lexical_unit_factory(
+            lemma="test",
+            language="en",
+            part_of_speech=PartOfSpeech.VERB,
+            lexical_category=LexicalCategory.PHRASAL_VERB,
+        )
+        assert lu_phrasal.lexical_category == LexicalCategory.PHRASAL_VERB
 
 
 class TestLexicalUnitTranslationModel:

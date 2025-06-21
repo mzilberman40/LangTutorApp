@@ -39,6 +39,7 @@ from learning.tasks import (
     enrich_details_async,
     translate_unit_async,
     resolve_lemma_async,
+    enrich_phrase_async,
 )
 from learning.utils import get_canonical_lemma
 
@@ -389,6 +390,33 @@ class PhraseViewSet(viewsets.ModelViewSet):
     search_fields = ["text"]
     ordering_fields = ["language", "category", "cefr"]
     ordering = ["language", "category", "cefr"]
+
+    @extend_schema(
+        summary="Enrich Phrase Details",
+        description="Triggers an asynchronous task to verify and enrich a phrase (e.g., determine CEFR, category, and check for correctness).",
+        responses={202: {"description": "Enrichment task successfully queued."}},
+    )
+    @action(detail=True, methods=["post"])
+    def enrich(self, request, pk=None):
+        """
+        Triggers the asynchronous phrase enrichment task.
+        """
+        try:
+            phrase = self.get_object()
+            task_result = enrich_phrase_async.delay(phrase_id=phrase.id)
+            return Response(
+                {
+                    "message": "Phrase enrichment task queued.",
+                    "task_id": task_result.id,
+                },
+                status=status.HTTP_202_ACCEPTED,
+            )
+        except Exception as e:
+            logger.error(f"Failed to queue phrase enrichment task for phrase {pk}: {e}")
+            return Response(
+                {"error": "Failed to queue task."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class PhraseTranslationViewSet(viewsets.ModelViewSet):

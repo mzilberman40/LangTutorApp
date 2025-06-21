@@ -11,7 +11,7 @@ from learning.enums import (
     PhraseCategory,
 )
 from learning.utils import get_canonical_lemma
-from learning.validators import bcp47_validator
+from learning.validators import bcp47_validator, supported_language_validator
 
 
 class LexicalUnit(models.Model):
@@ -29,7 +29,7 @@ class LexicalUnit(models.Model):
     language = models.CharField(
         max_length=16,
         # default="en-GB",
-        validators=[bcp47_validator],
+        validators=[bcp47_validator, supported_language_validator],
         help_text="BCP47 language code (e.g. en, en-GB, he-IL)",
     )
     status = models.CharField(
@@ -141,15 +141,22 @@ class Phrase(models.Model):
     text = models.TextField()
     language = models.CharField(
         max_length=16,
-        validators=[bcp47_validator],
+        validators=[bcp47_validator, supported_language_validator],
         help_text="BCP47 language code (e.g. en, ru, he-IL)",
     )
-    cefr = models.CharField(max_length=2, choices=CEFR.choices)
-
+    cefr = models.CharField(max_length=2, choices=CEFR.choices, blank=True, null=True)
     category = models.CharField(
-        max_length=10, choices=PhraseCategory.choices, default=PhraseCategory.GENERAL
+        max_length=10, choices=PhraseCategory.choices, blank=True, null=True
     )
     units = models.ManyToManyField(LexicalUnit, blank=True)
+
+    # +++ Новые поля для валидации +++
+    validation_status = models.CharField(
+        max_length=10,
+        choices=ValidationStatus.choices,
+        default=ValidationStatus.UNVERIFIED,
+    )
+    validation_notes = models.TextField(blank=True, default="")
 
     class Meta:
         unique_together = ("text", "language")

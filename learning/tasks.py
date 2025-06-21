@@ -9,7 +9,8 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 
 from learning.enums import TranslationType, PartOfSpeech, ValidationStatus
-from learning.models import LexicalUnit, LexicalUnitTranslation
+from learning.models import LexicalUnit, LexicalUnitTranslation, Phrase
+from services.enrich_phrase_details import enrich_phrase_details
 from services.get_lemma_details import get_lemma_details
 from services.translate_lemma import translate_lemma_with_details
 from services.unit2phrases import unit2phrases
@@ -355,3 +356,77 @@ def validate_lu_integrity_async(self, unit_id: int):
     except Exception as e:
         logger.error(f"Error during validation for LU {unit.id}: {e}")
         self.retry(exc=e)
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=60)
+def enrich_phrase_async(self, phrase_id: int):
+    """
+    Asynchronously enriches a Phrase object by verifying it and filling in
+    missing details using an LLM.
+    """
+    logger.info(f"Starting enrichment task for Phrase ID: {phrase_id}")
+    try:
+        phrase = Phrase.objects.get(id=phrase_id)
+    except ObjectDoesNotExist:
+        logger.error(f"Cannot enrich: Phrase with id={phrase_id} not found.")
+        return
+
+    try:
+        client = get_client()
+        analysis = enrich_phrase_details(client, phrase)
+
+        if not analysis:
+            raise ValueError("Analysis service did not return a valid response.")
+
+        # --- Применяем логику на основе ответа LLM ---
+        notes = []
+
+        # 1. Проверка корректности и естественности
+        if not analysis.is_valid:
+            phrase.validation_status = ValidationStatus.MISMATCH
+            if analysis.justification:
+                notes.append(analysis.justification)
+        else:
+            phrase.validation_status = ValidationStatus.VALID
+            # Если есть какая-то полезная заметка (например, о диалекте)
+            if analysis.justification:
+                notes.append(analysis.justification)
+
+        # 2. Проверка языка (сравниваем с тем, что в БД)
+        # Приводим к нижнему регистру для надежного сравнения
+        db_lang = phrase.language.lower()
+        llm_lang = analysis.language_code.lower()
+
+        if db_lang != llm_lang:
+            # Если не совпадает даже базовый язык (en vs es)
+            if db_lang.split('-')[0] != llm_lang.split('-')[0]:
+                phrase.validation_status = ValidationStatus.MISMATCH
+                # Добавляем заметку о несоответствии языка в начало списка
+                notes.insert(0, f"Language mismatch: saved as '{phrase.language}', but detected as '{analysis.language_code}'.")
+            # Если это просто уточнение диалекта, заметка уже должна быть добавлена из `justification`
+            # и статус уже VALID (если нет других проблем)
+
+        # 3. Заполнение или проверка CEFR и Category
+        if not phrase.cefr:
+            phrase.cefr = analysis.cefr_level
+        elif phrase.cefr != analysis.cefr_level:
+            notes.append(f"CEFR level mismatch: saved as '{phrase.cefr}', but estimated as '{analysis.cefr_level}'.")
+            phrase.validation_status = ValidationStatus.MISMATCH
+
+        if not phrase.category:
+            phrase.category = analysis.category
+        elif phrase.category != analysis.category:
+            notes.append(f"Category mismatch: saved as '{phrase.category}', but estimated as '{analysis.category}'.")
+            phrase.validation_status = ValidationStatus.MISMATCH
+
+        # Сохраняем все собранные заметки
+        phrase.validation_notes = " | ".join(notes)
+
+    except Exception as e:
+        logger.error(f"Error during phrase enrichment for ID {phrase_id}: {e}", exc_info=True)
+        phrase.validation_status = ValidationStatus.FAILED
+        phrase.validation_notes = f"Enrichment process failed: {str(e)}"
+        self.retry(exc=e)
+
+    finally:
+        phrase.save()
+        logger.info(f"Enrichment for Phrase {phrase_id} finished with status '{phrase.validation_status}'.")

@@ -6,10 +6,12 @@ from rest_framework.test import APIClient
 
 from learning.enums import LexicalCategory, PartOfSpeech
 from learning.models import LexicalUnit, Phrase
+from celery import current_app as celery_app
 
 
 @pytest.fixture(autouse=True, scope="session")
 def set_env():
+    # Keep your existing env setup
     os.environ["NEBIUS_API_KEY"] = "test-dummy"
 
 

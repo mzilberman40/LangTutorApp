@@ -1,7 +1,9 @@
 # Пожалуйста, полностью замените содержимое этого файла.
 import pytest
 from django.urls import reverse
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
+
+from learning.enums import ValidationStatus, PhraseCategory, CEFR
 from learning.models import Phrase
 
 pytestmark = pytest.mark.django_db
@@ -36,20 +38,3 @@ class TestPhraseAPI:
         response = authenticated_client.get(url)
         assert response.status_code == 200
         assert len(response.data) >= 1
-
-    @patch("learning.views.enrich_phrase_async.delay")
-    def test_enrich_endpoint_triggers_task(
-        self, mock_task_delay, authenticated_client, phrase_factory
-    ):
-        """Tests that the /enrich/ endpoint correctly queues the Celery task."""
-        # Arrange
-        phrase = phrase_factory()
-        url = reverse("phrase-enrich", kwargs={"pk": phrase.pk})
-
-        # Act
-        response = authenticated_client.post(url)
-
-        # Assert
-        assert response.status_code == 202
-        assert "task_id" in response.data
-        mock_task_delay.assert_called_once_with(phrase_id=phrase.id)

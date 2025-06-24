@@ -1,0 +1,55 @@
+*** Begin Patch
+*** Update File: learning/serializers.py
+@@
+-from rest_framework import serializers
++# Standard DRF imports
++from rest_framework import serializers
++# Built‑in validator that can replace our hand‑rolled duplicate check
++from rest_framework.validators import UniqueTogetherValidator
+@@
+-class LexicalUnitSerializer(serializers.ModelSerializer):
++class LexicalUnitSerializer(serializers.ModelSerializer):
+@@
+-    def validate(self, attrs):
+-        """Ensure the same user cannot create an identical lexical unit twice."""
+-        user = self.context["request"].user
+-        exists = LexicalUnit.objects.filter(
+-            user=user,
+-            lemma=attrs["lemma"],
+-            language=attrs["language"],
+-            part_of_speech=attrs["part_of_speech"],
+-            lexical_category=attrs["lexical_category"],
+-        ).exists()
+-        if exists:
+-            raise serializers.ValidationError(
+-                "This lexical unit already exists in your list."
+-            )
+-        return attrs
++    # The custom validate() method that performed a duplicate‑check has been
++    # removed because the UniqueTogetherValidator below covers the same case
++    # at the serializer level (before hitting the database).
+@@
+     class Meta:
+         model = LexicalUnit
+@@
+         read_only_fields = (
+             "date_added",
+             "last_reviewed",
+         )
++        # Enforce uniqueness of the combined fields so we don't create the same
++        # lexical unit for the same user twice.
++        validators = [
++            UniqueTogetherValidator(
++                queryset=LexicalUnit.objects.all(),
++                fields=[
++                    "user",
++                    "lemma",
++                    "language",
++                    "part_of_speech",
++                    "lexical_category",
++                ],
++                message="This lexical unit already exists in your list.",
++            )
++        ]
+*** End Patch
+

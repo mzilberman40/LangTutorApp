@@ -194,3 +194,11 @@ SUPPORTED_LANGUAGES = [
     "he",
     # Добавьте другие языки по мере необходимости
 ]
+
+# Celery settings for testing purposes
+# When running tests, ensure Celery tasks execute synchronously
+import sys
+
+if "pytest" in sys.argv[0]:
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES_EXCEPTIONS = True

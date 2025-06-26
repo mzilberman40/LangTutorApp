@@ -1,11 +1,15 @@
-# Пожалуйста, полностью замените содержимое этого файла.
+# learning/tests/test_phrase_api.py
 import pytest
 from django.urls import reverse
 from unittest.mock import patch, MagicMock
-
-from learning.enums import ValidationStatus, PhraseCategory, CEFR
 from learning.models import Phrase
+from learning.enums import CEFR, PhraseCategory, ValidationStatus
+import logging
+import uuid  # Import the uuid module to validate UUIDs
 
+logger = logging.getLogger(__name__)
+
+# All tests in this file will be run against the database
 pytestmark = pytest.mark.django_db
 
 
@@ -38,3 +42,47 @@ class TestPhraseAPI:
         response = authenticated_client.get(url)
         assert response.status_code == 200
         assert len(response.data) >= 1
+
+    # We are NOT patching the task function or its delay method here.
+    # We rely on CELERY_TASK_ALWAYS_EAGER=True (in settings.py) to run the real task.
+    # We rely on GLOBAL mocks in conftest.py to mock LLM service calls within the real task.
+    def test_enrich_endpoint_triggers_task(self, authenticated_client, phrase_factory):
+        """
+        Tests that the /enrich/ endpoint correctly triggers the phrase enrichment task.
+        In eager mode, this verifies the real task is called and its effects are applied.
+        """
+        logger.debug("Starting test_enrich_endpoint_triggers_task")
+
+        phrase = phrase_factory()
+        url = reverse("phrase-enrich", kwargs={"pk": phrase.pk})
+
+        logger.debug(f"Calling API endpoint {url}")
+        response = authenticated_client.post(url)
+        logger.debug("API endpoint call finished.")
+
+        # Assert API response
+        assert response.status_code == 202
+        assert "task_id" in response.data
+        # Assert that task_id is a valid UUID, not a specific mocked string.
+        # This is the pragmatic approach when Celery eager mode generates real UUIDs.
+        try:
+            uuid.UUID(response.data["task_id"], version=4)  # Validate as UUIDv4
+            is_valid_uuid = True
+        except ValueError:
+            is_valid_uuid = False
+        assert (
+            is_valid_uuid
+        ), f"Expected task_id to be a valid UUID, but got {response.data['task_id']}"
+
+        # Since Celery is in eager mode (configured in settings.py),
+        # the real enrich_phrase_async task will have run and updated the phrase.
+        # We need to refresh the phrase object from the database to see the changes.
+        phrase.refresh_from_db()
+
+        # Assert on the phrase's updated state, relying on the real task's logic
+        # (which itself relies on global mocks from conftest.py)
+        assert phrase.validation_status == ValidationStatus.VALID
+        assert phrase.cefr == CEFR.B1
+        assert phrase.category == PhraseCategory.GENERAL
+        assert phrase.validation_notes == ""
+        logger.debug("Test finished successfully.")

@@ -36,14 +36,14 @@ nebius_client = OpenAI(
 if __name__ == "__main__":
 
     # List available models
-    # nebius_list_models(nebius_client)
+    nebius_list_models(nebius_client)
 
     # Example usage of get_lemma_details
 
-    lu = LexicalUnit.objects.first()
-    print(lu)
-    result = get_lemma_details(client=nebius_client, lexical_unit=lu)
-    print(result)
+    # lu = LexicalUnit.objects.first()
+    # print(lu)
+    # result = get_lemma_details(client=nebius_client, lexical_unit=lu)
+    # print(result)
 
     # Generate phrases
     # system_prompt = word2phrases(client=nebius_client, word="outshine", cefr="C1")

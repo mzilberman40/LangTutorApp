@@ -174,7 +174,7 @@ LOGGING = {
             "level": "WARNING",
             "propagate": False,
         },
-        "learning": {
+        "learning": {  # <-- Убедитесь, что этот логгер настроен на DEBUG
             "handlers": ["console"],
             "level": "DEBUG",
             "propagate": False,

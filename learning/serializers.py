@@ -1,5 +1,3 @@
-# learning/serializers.py - Версия, исправляющая ImportError
-
 from rest_framework import serializers
 
 from learning.enums import CEFR, LexicalCategory, PartOfSpeech, TranslationType
@@ -13,13 +11,18 @@ from learning.utils import get_canonical_lemma
 from .validators import bcp47_validator, supported_language_validator
 
 
+class LanguageField(serializers.CharField):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("max_length", 16)
+        kwargs.setdefault("validators", [bcp47_validator, supported_language_validator])
+        super().__init__(*args, **kwargs)
+
+
 class ResolveLemmaRequestSerializer(serializers.Serializer):
     """Validates the input for the lemma resolution/creation endpoint."""
 
     lemma = serializers.CharField(max_length=100)
-    language = serializers.CharField(
-        max_length=16, validators=[bcp47_validator, supported_language_validator]
-    )
+    language = LanguageField()
     part_of_speech = serializers.ChoiceField(
         choices=PartOfSpeech.choices, required=False
     )
@@ -45,9 +48,7 @@ class ResolvedLemmaResponseSerializer(serializers.Serializer):
 
 class LexicalUnitSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
-    language = serializers.CharField(
-        validators=[bcp47_validator, supported_language_validator]
-    )
+    language = LanguageField()
     lexical_category = serializers.CharField(read_only=True)
 
     class Meta:
@@ -104,9 +105,7 @@ class LexicalUnitInputSerializer(serializers.Serializer):
     """Validates the structure of individual lexical unit data for bulk operations."""
 
     lemma = serializers.CharField(max_length=100)
-    language = serializers.CharField(
-        max_length=16, validators=[bcp47_validator, supported_language_validator]
-    )
+    language = LanguageField()
     lexical_category = serializers.ChoiceField(choices=LexicalCategory.choices)
     part_of_speech = serializers.ChoiceField(choices=PartOfSpeech.choices)
     pronunciation = serializers.CharField(
@@ -207,9 +206,7 @@ class LexicalUnitTranslationSerializer(serializers.ModelSerializer):
 
 
 class PhraseSerializer(serializers.ModelSerializer):
-    language = serializers.CharField(
-        validators=[bcp47_validator, supported_language_validator]
-    )
+    language = LanguageField()
     validation_status = serializers.CharField(read_only=True)
     validation_notes = serializers.CharField(read_only=True)
 
@@ -239,9 +236,7 @@ class PhraseTranslationSerializer(serializers.ModelSerializer):
 
 
 class PhraseGenerationRequestSerializer(serializers.Serializer):
-    target_translation_language = serializers.CharField(
-        max_length=16, validators=[bcp47_validator, supported_language_validator]
-    )
+    target_translation_language = LanguageField()
     cefr = serializers.ChoiceField(choices=CEFR.choices)
 
 
@@ -254,6 +249,4 @@ class EnrichDetailsRequestSerializer(serializers.Serializer):
 class TranslateRequestSerializer(serializers.Serializer):
     """Validates the request for the translation endpoint."""
 
-    target_language_code = serializers.CharField(
-        max_length=16, validators=[bcp47_validator, supported_language_validator]
-    )
+    target_language_language = LanguageField()

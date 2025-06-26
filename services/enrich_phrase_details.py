@@ -51,16 +51,9 @@ You must perform the following analysis and return ONLY a valid JSON object that
 
 # 3. Основная сервисная функция
 def enrich_phrase_details(client, phrase: Phrase) -> Optional[PhraseAnalysisResponse]:
-    """
-    Calls an LLM to analyze a phrase and returns structured data about it.
-
-    Args:
-        client: An OpenAI-compatible client.
-        phrase: The Phrase instance to analyze.
-
-    Returns:
-        A Pydantic object with the analysis result, or None on failure.
-    """
+    logger.debug(
+        f"Starting enrich_phrase_details for phrase '{phrase.text}' (ID: {phrase.id})"
+    )  # <-- ДОБАВИТЬ
     try:
         cefr_list = ", ".join([level.value for level in CEFR])
         category_list = ", ".join([cat.value for cat in PhraseCategory])
@@ -76,13 +69,19 @@ def enrich_phrase_details(client, phrase: Phrase) -> Optional[PhraseAnalysisResp
             system_prompt=_SYSTEM_PROMPT, user_prompt="", params=params
         )
 
+        logger.debug(
+            f"Calling answer_with_llm for phrase '{phrase.text}' with model 'meta-llama/Llama-3.3-70B-Instruct'"
+        )  # <-- ДОБАВИТЬ
         response_str = answer_with_llm(
             client=client,
             messages=messages,
-            model="meta-llama/Llama-3.3-70B-Instruct",  # или ваша основная модель
+            model="meta-llama/Llama-3.3-70B-Instruct",
             extra_body={"guided_json": PhraseAnalysisResponse.model_json_schema()},
             temperature=0.1,
         )
+        logger.debug(
+            f"answer_with_llm returned for phrase '{phrase.text}'. Attempting to validate JSON."
+        )  # <-- ДОБАВИТЬ
 
         return PhraseAnalysisResponse.model_validate_json(response_str)
 

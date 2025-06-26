@@ -401,9 +401,18 @@ class PhraseViewSet(viewsets.ModelViewSet):
         """
         Triggers the asynchronous phrase enrichment task.
         """
+        logger.debug(
+            f"API endpoint 'enrich' called for phrase {pk}."
+        )  # <-- ДОБАВИТЬ ЭТУ СТРОКУ
         try:
             phrase = self.get_object()
+            logger.debug(
+                f"Phrase object retrieved in view: {phrase.id}"
+            )  # <-- ДОБАВИТЬ ЭТУ СТРОКУ
             task_result = enrich_phrase_async.delay(phrase_id=phrase.id)
+            logger.debug(
+                f"enrich_phrase_async.delay called for phrase {phrase.id}. Task ID: {task_result.id}"
+            )  # <-- ДОБАВИТЬ ЭТУ СТРОКУ
             return Response(
                 {
                     "message": "Phrase enrichment task queued.",
@@ -412,7 +421,10 @@ class PhraseViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_202_ACCEPTED,
             )
         except Exception as e:
-            logger.error(f"Failed to queue phrase enrichment task for phrase {pk}: {e}")
+            logger.error(
+                f"Failed to queue phrase enrichment task for phrase {pk}: {e}",
+                exc_info=True,
+            )  # <-- ИСПОЛЬЗУЙТЕ exc_info=True
             return Response(
                 {"error": "Failed to queue task."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

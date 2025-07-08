@@ -2,8 +2,9 @@
 import pytest
 from unittest.mock import patch
 from learning.models import LexicalUnit, LexicalUnitTranslation
-from learning.enums import PartOfSpeech, ValidationStatus
+from learning.enums import PartOfSpeech, ValidationStatus, LexicalCategory
 from learning.tasks import enrich_details_async, translate_unit_async
+from services.translate_lemma import TranslationResponse, TranslationDetail
 
 pytestmark = pytest.mark.django_db
 
@@ -39,7 +40,6 @@ def test_enrich_adds_new_pos_variant_for_existing_lu(
     # Assert: Проверяем, что теперь существуют ОБЕ версии
     assert LexicalUnit.objects.filter(lemma="conduct", part_of_speech="noun").exists()
     assert LexicalUnit.objects.filter(lemma="conduct", part_of_speech="verb").exists()
-    # Проверяем, что общее количество записей для этого слова - 2
     assert LexicalUnit.objects.filter(lemma="conduct").count() == 2
 
 
@@ -48,22 +48,27 @@ def test_translate_creates_multiple_variants_and_links(
     mock_translate, lexical_unit_factory
 ):
     source_lu = lexical_unit_factory(lemma="fire", language="en", part_of_speech="noun")
-    mock_translate.return_value = {
-        "translated_lemma": "огонь",
-        "translation_details": [
-            {
-                "lexical_category": "SINGLE_WORD",
-                "part_of_speech": "noun",
-                "pronunciation": "/ɐˈɡonʲ/",
-            },
-            {
-                "lexical_category": "SINGLE_WORD",
-                "part_of_speech": "verb",
-                "pronunciation": "/ɐˈɡonʲitʲ/",
-            },
+
+    # --- FIX IS HERE ---
+    # The mock must return an instance of the Pydantic model, not a raw dict,
+    # because the task code expects an object with attributes.
+    mock_translate.return_value = TranslationResponse(
+        translated_lemma="огонь",
+        translation_details=[
+            TranslationDetail(
+                lexical_category=LexicalCategory.SINGLE_WORD,
+                part_of_speech=PartOfSpeech.NOUN,
+                pronunciation="/ɐˈɡonʲ/",
+            ),
+            TranslationDetail(
+                lexical_category=LexicalCategory.SINGLE_WORD,
+                part_of_speech=PartOfSpeech.VERB,
+                pronunciation="/ɐˈɡonʲitʲ/",
+            ),
         ],
-    }
-    # FIX: Pass the user's ID to the task call.
+    )
+    # --- END FIX ---
+
     translate_unit_async(
         unit_id=source_lu.id, user_id=source_lu.user.id, target_language_code="ru"
     )
@@ -90,22 +95,16 @@ def test_enrich_stops_if_initial_lu_is_mismatched(
     Тестирует, что обогащение останавливается, если исходная LU имеет
     несоответствующую часть речи (MISMATCH).
     """
-    # Arrange: Создаем LU с POS='noun', но LLM вернет только 'verb'.
     lu_to_test = lexical_unit_factory(lemma="delegate", part_of_speech="noun")
     mock_get_details.return_value = [
         {"lexical_category": "SINGLE_WORD", "part_of_speech": "verb"}
     ]
 
-    # Act: Запускаем задачу
     enrich_details_async(unit_id=lu_to_test.id, user_id=lu_to_test.user.id)
 
-    # Assert:
-    # 1. Статус исходного объекта должен измениться на MISMATCH
     lu_to_test.refresh_from_db()
     assert lu_to_test.validation_status == ValidationStatus.MISMATCH
     assert "LLM suggested: [verb]" in lu_to_test.validation_notes
-
-    # 2. Самое главное: новый вариант (verb) НЕ должен быть создан
     assert not LexicalUnit.objects.filter(
         lemma="delegate", part_of_speech="verb"
     ).exists()
@@ -119,18 +118,12 @@ def test_enrich_stops_if_initial_lu_is_not_found_by_llm(
     Тестирует, что обогащение останавливается, если LLM не находит
     никаких вариантов для леммы (FAILED).
     """
-    # Arrange: Создаем LU с "фальшивой" леммой, и LLM возвращает пустой список
     lu_to_test = lexical_unit_factory(lemma="asdfqwerty", part_of_speech="noun")
     mock_get_details.return_value = []
 
-    # Act: Запускаем задачу
     enrich_details_async(unit_id=lu_to_test.id, user_id=lu_to_test.user.id)
 
-    # Assert:
-    # 1. Статус исходного объекта должен измениться на FAILED
     lu_to_test.refresh_from_db()
     assert lu_to_test.validation_status == ValidationStatus.FAILED
     assert "LLM could not find any valid forms" in lu_to_test.validation_notes
-
-    # 2. Никаких новых объектов не создано (просто для уверенности)
     assert LexicalUnit.objects.filter(lemma="asdfqwerty").count() == 1

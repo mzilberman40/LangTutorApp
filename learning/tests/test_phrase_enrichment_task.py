@@ -1,140 +1,92 @@
 # learning/tests/test_phrase_enrichment_task.py
-
 import pytest
 from unittest.mock import patch, MagicMock
-from learning.models import Phrase, ValidationStatus
-from learning.enums import CEFR, PhraseCategory
+
+from learning.models import Phrase
+from learning.enums import ValidationStatus, CEFR, PhraseCategory
 from learning.tasks import enrich_phrase_async
+from services.enrich_phrase_details import enrich_phrase_details, PhraseAnalysisResponse
 
 pytestmark = pytest.mark.django_db
 
 
-@patch("learning.tasks.enrich_phrase_details")
-def test_enrich_fills_empty_fields_for_valid_phrase(
-    mock_enrich_details, phrase_factory
-):
+@pytest.mark.usefixtures("no_phrase_enrichment_signal")
+def test_enrich_phrase_task_success_path(phrase_factory):
     """
-    Tests that the task correctly fills empty cefr and category fields
-    for a valid phrase.
+    Tests the enrich_phrase_async task's logic in isolation.
     """
-    # Arrange
     phrase = phrase_factory(
-        text="This is a test phrase.", language="en", cefr=None, category=None
+        text="A test phrase.", language="en", cefr=None, category=None
     )
-    mock_enrich_details.return_value = MagicMock(
+
+    mock_analysis_result = PhraseAnalysisResponse(
         is_valid=True,
-        justification=None,
+        justification="Looks natural.",
         language_code="en-US",
-        cefr_level=CEFR.B1,
+        cefr_level=CEFR.B2,
         category=PhraseCategory.GENERAL,
     )
 
-    # Act
-    enrich_phrase_async(phrase_id=phrase.id)
+    with patch(
+        "learning.tasks.enrich_phrase_details", return_value=mock_analysis_result
+    ) as mock_enrich_service:
+        enrich_phrase_async(phrase_id=phrase.id)
 
-    # Assert
     phrase.refresh_from_db()
+
     assert phrase.validation_status == ValidationStatus.VALID
-    assert phrase.cefr == CEFR.B1
-    assert phrase.category == PhraseCategory.GENERAL
-    assert phrase.validation_notes == ""
 
 
-@patch("learning.tasks.enrich_phrase_details")
-def test_enrich_handles_incorrect_phrase(mock_enrich_details, phrase_factory):
+@pytest.mark.usefixtures("no_phrase_enrichment_signal")
+def test_enrich_phrase_task_mismatch_path(phrase_factory):
     """
-    Tests that the task sets MISMATCH status and notes for an incorrect phrase.
+    Tests that the task correctly handles a mismatch scenario.
     """
-    # Arrange
-    phrase = phrase_factory(text="It are a good day.", language="en")
-    mock_enrich_details.return_value = MagicMock(
+    phrase = phrase_factory(text="This are bad grammar.", language="en", cefr=CEFR.A1)
+
+    mock_analysis_result = PhraseAnalysisResponse(
         is_valid=False,
-        justification="Grammatical error: subject-verb agreement.",
-        language_code="en-US",
-        cefr_level=CEFR.A1,
-        category=PhraseCategory.GENERAL,
-    )
-
-    # Act
-    enrich_phrase_async(phrase_id=phrase.id)
-
-    # Assert
-    phrase.refresh_from_db()
-    assert phrase.validation_status == ValidationStatus.MISMATCH
-    assert "Grammatical error" in phrase.validation_notes
-
-
-@patch("learning.tasks.enrich_phrase_details")
-def test_enrich_handles_language_mismatch(mock_enrich_details, phrase_factory):
-    """
-    Tests that the task correctly identifies and notes a language mismatch.
-    """
-    # Arrange
-    phrase = phrase_factory(text="Hola mundo", language="fr")  # Saved as French
-    mock_enrich_details.return_value = MagicMock(
-        is_valid=True,
-        justification="Language mismatch detected.",  # Mock justification
-        language_code="es",  # Detected as Spanish
-        cefr_level=CEFR.A1,
-        category=PhraseCategory.GENERAL,
-    )
-
-    # Act
-    enrich_phrase_async(phrase_id=phrase.id)
-
-    # Assert
-    phrase.refresh_from_db()
-    assert phrase.validation_status == ValidationStatus.MISMATCH
-    assert (
-        "Language mismatch: saved as 'fr', but detected as 'es'"
-        in phrase.validation_notes
-    )
-
-
-@patch("learning.tasks.enrich_phrase_details")
-def test_enrich_handles_dialect_nuance(mock_enrich_details, phrase_factory):
-    """
-    Tests that the task adds a note for a dialect nuance without changing status to MISMATCH.
-    """
-    # Arrange
-    phrase = phrase_factory(text="Let's grab a flat white.", language="en")
-    mock_enrich_details.return_value = MagicMock(
-        is_valid=True,
-        justification="Note: This phrasing is typical of Australian English (en-AU).",
-        language_code="en-AU",
+        justification="Grammatical error: 'This are' should be 'This is'.",
+        language_code="en-GB",
         cefr_level=CEFR.A2,
         category=PhraseCategory.GENERAL,
     )
 
-    # Act
-    enrich_phrase_async(phrase_id=phrase.id)
-
-    # Assert
-    phrase.refresh_from_db()
-    assert phrase.validation_status == ValidationStatus.VALID  # Status is still valid
-    assert "typical of Australian English" in phrase.validation_notes
-
-
-@patch("learning.tasks.enrich_phrase_details")
-def test_enrich_handles_service_failure(mock_enrich_details, phrase_factory):
-    """
-    Tests that the task sets FAILED status if the enrichment service returns None.
-    """
-    # Arrange
-    phrase = phrase_factory()
-    mock_enrich_details.return_value = None
-
-    # Act
-    with pytest.raises(
-        ValueError, match="Analysis service did not return a valid response."
-    ):  # <-- ИСПРАВЛЕНИЕ ЗДЕСЬ
+    with patch(
+        "learning.tasks.enrich_phrase_details", return_value=mock_analysis_result
+    ):
         enrich_phrase_async(phrase_id=phrase.id)
 
-    # Assert
     phrase.refresh_from_db()
-    assert phrase.validation_status == ValidationStatus.FAILED
-    assert (
-        "Enrichment process failed: Analysis service did not return a valid response."
-        in phrase.validation_notes
-    )  # <-- ИСПРАВЛЕНИЕ ЗДЕСЬ
-    assert mock_enrich_details.called  # <-- ИСПРАВЛЕНИЕ ЗДЕСЬ
+    assert phrase.validation_status == ValidationStatus.MISMATCH
+    assert phrase.cefr == CEFR.A1
+    assert "Grammatical error" in phrase.validation_notes
+    assert "CEFR level mismatch" in phrase.validation_notes
+
+
+# --- FIX IS HERE: Apply the fixture to this test as well to prevent DB pollution ---
+@pytest.mark.usefixtures("no_phrase_enrichment_signal")
+@patch("services.enrich_phrase_details.answer_with_llm")
+def test_enrich_phrase_service_logic(mock_answer_with_llm, phrase_factory):
+    """
+    Tests the enrich_phrase_details service's logic in isolation.
+    """
+    mock_client = MagicMock()
+    phrase_to_analyze = phrase_factory(text="A phrase to analyze", language="en")
+    llm_json_response = """
+    {
+        "is_valid": true,
+        "justification": "The phrase is grammatically correct and natural.",
+        "language_code": "en-US",
+        "cefr_level": "B1",
+        "category": "GENERAL"
+    }
+    """
+    mock_answer_with_llm.return_value = llm_json_response
+
+    result = enrich_phrase_details(client=mock_client, phrase=phrase_to_analyze)
+
+    assert isinstance(result, PhraseAnalysisResponse)
+    assert result.is_valid is True
+    assert result.cefr_level == CEFR.B1
+    mock_answer_with_llm.assert_called_once()

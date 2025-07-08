@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 from ai.answer_with_llm_old import answer_with_llm

@@ -12,6 +12,8 @@ from learning.models import Phrase
 
 logger = logging.getLogger(__name__)
 
+MODEL = "deepseek-ai/DeepSeek-V3-0324"
+
 
 # 1. Pydantic-модель для валидации ответа от LLM
 class PhraseAnalysisResponse(BaseModel):
@@ -75,7 +77,10 @@ def enrich_phrase_details(client, phrase: Phrase) -> Optional[PhraseAnalysisResp
         response_str = answer_with_llm(
             client=client,
             messages=messages,
-            model="meta-llama/Llama-3.3-70B-Instruct",
+            # model="meta-llama/Llama-3.3-70B-Instruct",
+            # model="google/gemma-2-9b-it-fast",
+            # model="mistralai/Mistral-Nemo-Instruct-2407",
+            model=MODEL,
             extra_body={"guided_json": PhraseAnalysisResponse.model_json_schema()},
             temperature=0.1,
         )

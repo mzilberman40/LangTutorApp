@@ -25,7 +25,7 @@ SECRET_KEY = "django-insecure-^%g%%+s98=d+@3t@vl@vxn561jj*)))9n!cz(a+1db_o=7@5kb
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["b2ea-212-175-197-252.ngrok-free.app", "localhost", "127.0.0.1"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 # Application definition
 
@@ -129,6 +129,9 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         # This allows you to be authenticated by logging into the Django admin
         "rest_framework.authentication.SessionAuthentication",
+        # --- ADD THIS LINE ---
+        # This allows you to authenticate via username/password in API clients like Swagger
+        "rest_framework.authentication.BasicAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         # This ensures endpoints are protected by default
@@ -140,6 +143,8 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ],
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 100,
 }
 
 SPECTACULAR_SETTINGS = {
@@ -192,7 +197,8 @@ SUPPORTED_LANGUAGES = [
     "es",
     "it",
     "he",
-    # Добавьте другие языки по мере необходимости
+    "pt",
+    "nl",
 ]
 
 # Celery settings for testing purposes

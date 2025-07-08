@@ -36,15 +36,15 @@ def test_endpoints_require_authentication(
     assert response.status_code in [401, 403], f"URL '{url_name}' should be protected"
 
 
-def test_resolve_lemma_requires_authentication(api_client):
-    url = reverse("resolve-lemma")
+def test_resolve_lu_requires_authentication(api_client):
+    url = reverse("lexicalunit-resolve")
     payload = {"lemma": "test", "language": "en"}
     response = api_client.post(url, payload, format="json")
     assert response.status_code in [401, 403]
 
 
-def test_resolve_lemma_is_accessible_for_authenticated_user(authenticated_client):
-    url = reverse("resolve-lemma")
+def test_resolve_lu_is_accessible_for_authenticated_user(authenticated_client):
+    url = reverse("lexicalunit-resolve")
     payload = {"lemma": "test", "language": "en"}
     response = authenticated_client.post(url, payload, format="json")
     assert response.status_code == 202

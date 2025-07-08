@@ -83,8 +83,12 @@ class TestLexicalUnitAPI:
         # The API client is authenticated as the default_user
         response = authenticated_client.get(url)
         assert response.status_code == 200
-        assert len(response.data) == 1  # Should only see 1 unit
-        assert response.data[0]["lemma"] == "my_apple"
+        # assert len(response.data) == 1  # Should only see 1 unit
+        assert len(response.data["results"]) == 1
+        # assert response.data[0]["lemma"] == "my_apple"
+        assert (
+            response.data["results"][0]["lemma"] == "my_apple"
+        )  # Adjusted for pagination
 
     def test_update_fails_for_non_owner(
         self, authenticated_client, lexical_unit_factory, user_factory

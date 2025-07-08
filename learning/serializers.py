@@ -49,7 +49,6 @@ class ResolvedLemmaResponseSerializer(serializers.Serializer):
 class LexicalUnitSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
     language = LanguageField()
-    lexical_category = serializers.CharField(read_only=True)
 
     class Meta:
         model = LexicalUnit
@@ -74,7 +73,6 @@ class LexicalUnitSerializer(serializers.ModelSerializer):
             "user",
             "validation_status",
             "validation_notes",
-            "lexical_category",
         )
 
     def validate_lemma(self, value):
@@ -90,9 +88,7 @@ class LexicalUnitSerializer(serializers.ModelSerializer):
                     "lemma": data.get("lemma"),
                     "language": data.get("language"),
                     "part_of_speech": data.get("part_of_speech"),
-                    "lexical_category": LexicalUnit._meta.get_field(
-                        "lexical_category"
-                    ).get_default(),
+                    "lexical_category": data.get("lexical_category"),
                 }
                 if LexicalUnit.objects.filter(**query_params).exists():
                     raise serializers.ValidationError(
@@ -236,7 +232,7 @@ class PhraseTranslationSerializer(serializers.ModelSerializer):
 
 
 class PhraseGenerationRequestSerializer(serializers.Serializer):
-    target_translation_language = LanguageField()
+    target_language = LanguageField()
     cefr = serializers.ChoiceField(choices=CEFR.choices)
 
 
@@ -249,4 +245,13 @@ class EnrichDetailsRequestSerializer(serializers.Serializer):
 class TranslateRequestSerializer(serializers.Serializer):
     """Validates the request for the translation endpoint."""
 
-    target_language_language = LanguageField()
+    target_language_code = LanguageField()
+
+
+class AnalyzeTextRequestSerializer(serializers.Serializer):
+    """
+    Serializes the request data for analyzing a text block.
+    Requires the text to analyze and the user's current CEFR level.
+    """
+
+    text = serializers.CharField()

@@ -54,7 +54,8 @@ class TestLexicalUnitTranslationAPI:
         # The queryset for this view is not user-filtered yet, so we just check for existence.
         assert any(
             item["source_unit"] == unit1.id and item["target_unit"] == unit2.id
-            for item in response.data
+            # for item in response.data
+            for item in response.data["results"]
         )
 
     def test_delete_lexicalunit_translation(

@@ -10,3 +10,5 @@ drf-spectacular>=0.28.0,<0.29
 drf-spectacular-sidecar>=2025.5.1,<2025.6
 django-filter>=25.1.0,<25.2
 langchain>=0.3.25,<0.4
+langcodes>=3.5.0,<3.6
+spaCy>=3.8.7,<3.9

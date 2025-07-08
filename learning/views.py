@@ -2,6 +2,8 @@
 import logging
 
 from celery.result import AsyncResult
+from django.contrib.auth.models import User
+from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import status, viewsets, serializers
 from rest_framework.decorators import action
@@ -30,7 +32,7 @@ from learning.serializers import (
     TranslateRequestSerializer,
     EnrichDetailsRequestSerializer,
     ResolveLemmaRequestSerializer,
-    AnalyzeTextRequestSerializer,
+    AnalyzeTextRequestSerializer, ExternalImportSerializer,
 )
 from learning.tasks import (
     generate_phrases_async,
@@ -40,6 +42,7 @@ from learning.tasks import (
     enrich_phrase_async,
     analyze_text_and_suggest_words_async,
 )
+from learning.permissions import HasAPIKey
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +74,7 @@ class LexicalUnitViewSet(TaskQueuingMixin, viewsets.ModelViewSet):
     filterset_class = LexicalUnitFilter
     permission_classes = [IsAuthenticated]
     ordering_fields = [
+        "id",
         "lemma",
         "language",
         "date_added",
@@ -215,7 +219,7 @@ class LexicalUnitTranslationViewSet(viewsets.ModelViewSet):
     serializer_class = LexicalUnitTranslationSerializer
     filterset_class = LexicalUnitTranslationFilter
     search_fields = ["source_unit__lemma", "target_unit__lemma"]
-    ordering_fields = ["confidence"]
+    ordering_fields = ["id", "confidence"]
     ordering = ["-confidence"]
 
     def get_serializer_class(self):
@@ -248,7 +252,7 @@ class PhraseViewSet(TaskQueuingMixin, viewsets.ModelViewSet):
     serializer_class = PhraseSerializer
     filterset_class = PhraseFilter
     search_fields = ["text"]
-    ordering_fields = ["language", "category", "cefr"]
+    ordering_fields = ["id", "language", "category", "cefr"]
     ordering = ["language", "category", "cefr"]
 
     @extend_schema(
@@ -341,3 +345,36 @@ class AnalyzeTextView(TaskQueuingMixin, APIView):
             text=text_content,
             user_id=request.user.id,
         )
+
+
+class ExternalImportView(APIView):
+    """
+    An endpoint to receive translation data from an external service
+    and import it into the user's dictionary.
+    """
+    permission_classes = [HasAPIKey]
+
+    @extend_schema(
+        summary="Import Translation from External Service",
+        request=ExternalImportSerializer,
+        responses={
+            201: inline_serializer(
+                name="ExternalImportSuccessResponse",
+                fields={
+                    "created_entity": serializers.CharField(),
+                    # Using JSONField as the response structure (LU or Phrase) is dynamic
+                    "source": serializers.JSONField(),
+                    "targets": serializers.ListField(child=serializers.JSONField()),
+                },
+            )
+        },
+    )
+    def post(self, request, user_id, *args, **kwargs):
+        user = get_object_or_404(User, pk=user_id)
+        request.user = user
+
+        serializer = ExternalImportSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        created_data = serializer.save()
+
+        return Response(created_data, status=status.HTTP_201_CREATED)

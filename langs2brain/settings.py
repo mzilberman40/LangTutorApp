@@ -207,10 +207,19 @@ SUPPORTED_LANGUAGES = [
     "nl",
 ]
 
+
+# Celery Configuration Options
+CELERY_BROKER_URL = "redis://redis:6379/0"
+CELERY_RESULT_BACKEND = "redis://redis:6379/1"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = "UTC"
+
 # Celery settings for testing purposes
 # When running tests, ensure Celery tasks execute synchronously
 import sys
 
-if "pytest" in sys.argv[0]:
+if "pytest" in sys.argv[0] or "py.test" in sys.argv[0]:
     CELERY_TASK_ALWAYS_EAGER = True
     CELERY_TASK_EAGER_PROPAGATES_EXCEPTIONS = True

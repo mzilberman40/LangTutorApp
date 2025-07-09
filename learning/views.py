@@ -11,18 +11,20 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from learning.filters import (
+from .filters import (
     PhraseFilter,
     LexicalUnitTranslationFilter,
     LexicalUnitFilter,
 )
-from learning.models import (
+from .models import (
     LexicalUnit,
     LexicalUnitTranslation,
     Phrase,
     PhraseTranslation,
 )
-from learning.serializers import (
+# --- MODIFIED START ---
+# Imports are now from the new serializer package
+from .serializers import (
     LexicalUnitSerializer,
     LexicalUnitTranslationSerializer,
     LexicalUnitTranslationBulkSerializer,
@@ -32,9 +34,11 @@ from learning.serializers import (
     TranslateRequestSerializer,
     EnrichDetailsRequestSerializer,
     ResolveLemmaRequestSerializer,
-    AnalyzeTextRequestSerializer, ExternalImportSerializer,
+    AnalyzeTextRequestSerializer,
+    ExternalImportSerializer,
 )
-from learning.tasks import (
+# --- MODIFIED END ---
+from .tasks import (
     generate_phrases_async,
     enrich_details_async,
     translate_unit_async,
@@ -42,7 +46,7 @@ from learning.tasks import (
     enrich_phrase_async,
     analyze_text_and_suggest_words_async,
 )
-from learning.permissions import HasAPIKey
+from .permissions import HasAPIKey
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +55,7 @@ class TaskQueuingMixin:
     """A mixin to handle repetitive Celery task queuing logic."""
 
     def _queue_task(
-        self, task_func, success_message="Task queued successfully.", **kwargs
+            self, task_func, success_message="Task queued successfully.", **kwargs
     ):
         try:
             task_result = task_func.delay(**kwargs)
@@ -78,8 +82,8 @@ class LexicalUnitViewSet(TaskQueuingMixin, viewsets.ModelViewSet):
         "lemma",
         "language",
         "date_added",
-    ]  # Добавьте поля, по которым можно сортировать
-    ordering = ["lemma"]  # Установите порядок сортировки по умолчанию
+    ]
+    ordering = ["lemma"]
 
     def get_queryset(self):
         return LexicalUnit.objects.filter(user=self.request.user)
@@ -191,18 +195,15 @@ class LexicalUnitViewSet(TaskQueuingMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         validated_data = serializer.validated_data
 
-        # The key from the validated data
         target_language = validated_data["target_language"]
         cefr_level = validated_data["cefr"]
 
-        # The validation now uses the correct, standardised key.
         if target_language.lower() == unit.language.lower():
             return Response(
                 {"error": "Target language cannot be the same as the source language."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # The call to the task queuing mixin
         return self._queue_task(
             generate_phrases_async,
             unit_id=unit.id,
@@ -352,6 +353,7 @@ class ExternalImportView(APIView):
     An endpoint to receive translation data from an external service
     and import it into the user's dictionary.
     """
+
     permission_classes = [HasAPIKey]
 
     @extend_schema(
@@ -362,7 +364,6 @@ class ExternalImportView(APIView):
                 name="ExternalImportSuccessResponse",
                 fields={
                     "created_entity": serializers.CharField(),
-                    # Using JSONField as the response structure (LU or Phrase) is dynamic
                     "source": serializers.JSONField(),
                     "targets": serializers.ListField(child=serializers.JSONField()),
                 },
@@ -371,9 +372,11 @@ class ExternalImportView(APIView):
     )
     def post(self, request, user_id, *args, **kwargs):
         user = get_object_or_404(User, pk=user_id)
-        request.user = user
 
-        serializer = ExternalImportSerializer(data=request.data, context={'request': request})
+        # We pass the user via context instead of modifying the request object
+        context = {"request": request, "user": user}
+        serializer = ExternalImportSerializer(data=request.data, context=context)
+
         serializer.is_valid(raise_exception=True)
         created_data = serializer.save()
 
